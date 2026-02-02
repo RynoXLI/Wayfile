@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  migrate:
+    desc: Run database migrations
+    cmds:
+      - go tool tern migrate -m ./migrations
+
+  sqlc:
+    desc: Generate SQLC code
+    cmds:
+      - go tool sqlc generate -f sqlc.yaml
+
+  protobuf:
+    desc: Generate protobuf code using Buf
+    cmds:
+      - go tool buf generate
+
+  swagger:
+    desc: Generate Swagger documentation
+    cmds:
+      - go tool swag init -g cmd/api/main.go -o docs
+
+  tidy:
+    desc: Tidy Go modules
+    cmds:
+      - go mod tidy
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - golangci-lint fmt
+
+  lint:
+    desc: Run linters
+    deps:
+      - fmt
+    cmds:
+      - golangci-lint run
+
+  lint-fix:
+    desc: Run linters and auto-fix issues
+    cmds:
+      - golangci-lint run --fix
+
+  check:
+    desc: Run all checks (format, lint, test)
+    cmds:
+      - task: fmt
+      - task: lint
+      - go test ./...
+
+  dev:
+    desc: Run the API server
+    deps:
+      - tidy
+      - migrate
+      - protobuf
+      - sqlc
+    cmds:
+      - go tool air

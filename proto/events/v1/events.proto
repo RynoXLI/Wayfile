@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package events.v1;
+
+message DocumentUploadedEvent {
+  string document_id = 1;
+  string namespace_id = 2;
+  string filename = 3;
+  string mime_type = 4;
+}
