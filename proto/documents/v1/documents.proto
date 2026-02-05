@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package documents.v1;
+
+service DocumentService {
+  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+}
+
+message UpdateDocumentRequest {
+  string document_id = 1;
+  string content = 2;
+}
+
+message Document {
+  string document_id = 1;
+  string content = 2;
+  string title = 3;
+}
