@@ -53,10 +53,10 @@ tasks:
     cmds:
       - go test ./...
 
-  test:integration:
+  test:int:
     desc: Run integration tests
     cmds:
-      - go test -tags=integration ./cmd/api/... -v
+      - go test -tags=integration ./... -v
 
   check:
     desc: Run all checks (format, lint, test)

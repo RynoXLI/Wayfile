@@ -1,3 +1,5 @@
+//go:build integration
+
 package main
 
 import (
@@ -214,14 +216,23 @@ func TestUploadDocument(t *testing.T) {
 	documentID := uploadResponse.ID
 
 	// === Step 2: Download the file and verify content ===
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/"+documentID, nil)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/ns/test-namespace/documents/"+documentID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	downloadedContent := w.Body.Bytes()
-	require.Equal(t, fileContent, downloadedContent, "Downloaded content should match uploaded content")
+	require.Equal(
+		t,
+		fileContent,
+		downloadedContent,
+		"Downloaded content should match uploaded content",
+	)
 
 	// === Step 3: Try to upload the same file again (should get 409 Conflict) ===
 	body = &bytes.Buffer{}
@@ -245,7 +256,11 @@ func TestUploadDocument(t *testing.T) {
 	require.Equal(t, http.StatusConflict, w.Code, "Duplicate file should return 409 Conflict")
 
 	// === Step 4: Delete the document ===
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/ns/test-namespace/documents/"+documentID, nil)
+	req = httptest.NewRequest(
+		http.MethodDelete,
+		"/api/v1/ns/test-namespace/documents/"+documentID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
@@ -253,7 +268,11 @@ func TestUploadDocument(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, w.Code, "Delete should return 204 No Content")
 
 	// === Step 5: Try to download the deleted file (should get 404) ===
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/"+documentID, nil)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/ns/test-namespace/documents/"+documentID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
@@ -336,16 +355,29 @@ func TestUploadDocument(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify both documents have different IDs
-	require.NotEqual(t, doc1Response.ID, doc2Response.ID, "Multiple documents should have unique IDs")
+	require.NotEqual(
+		t,
+		doc1Response.ID,
+		doc2Response.ID,
+		"Multiple documents should have unique IDs",
+	)
 
 	// Verify both are downloadable
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/"+doc1Response.ID, nil)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/ns/test-namespace/documents/"+doc1Response.ID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 	ta.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, doc1Content, w.Body.Bytes())
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/"+doc2Response.ID, nil)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/ns/test-namespace/documents/"+doc2Response.ID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 	ta.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -362,7 +394,7 @@ func TestUploadDocument(t *testing.T) {
 	for i, filename := range specialFilenames {
 		// Make content unique for each file to avoid duplicate detection
 		specialContent := []byte(fmt.Sprintf("Special filename content %d", i))
-		
+
 		body = &bytes.Buffer{}
 		writer = multipart.NewWriter(body)
 
@@ -379,7 +411,13 @@ func TestUploadDocument(t *testing.T) {
 
 		ta.router.ServeHTTP(w, req)
 
-		require.Equal(t, http.StatusCreated, w.Code, "File with special characters should upload: %s", filename)
+		require.Equal(
+			t,
+			http.StatusCreated,
+			w.Code,
+			"File with special characters should upload: %s",
+			filename,
+		)
 
 		var specialResponse DocumentResponse
 		err = json.NewDecoder(w.Body).Decode(&specialResponse)
@@ -387,10 +425,20 @@ func TestUploadDocument(t *testing.T) {
 		require.Equal(t, filename, specialResponse.FileName, "Filename should be preserved")
 
 		// Verify downloadable
-		req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/"+specialResponse.ID, nil)
+		req = httptest.NewRequest(
+			http.MethodGet,
+			"/api/v1/ns/test-namespace/documents/"+specialResponse.ID,
+			nil,
+		)
 		w = httptest.NewRecorder()
 		ta.router.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code, "Should be able to download file with special characters: %s", filename)
+		require.Equal(
+			t,
+			http.StatusOK,
+			w.Code,
+			"Should be able to download file with special characters: %s",
+			filename,
+		)
 		require.Equal(t, specialContent, w.Body.Bytes())
 	}
 }
@@ -407,7 +455,11 @@ func TestInvalidDocumentID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to download with invalid UUID
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/ns/test-namespace/documents/not-a-uuid", nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/ns/test-namespace/documents/not-a-uuid",
+		nil,
+	)
 	w := httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
@@ -415,7 +467,11 @@ func TestInvalidDocumentID(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w.Code, "Invalid UUID should return 404")
 
 	// Try to delete with invalid UUID
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/ns/test-namespace/documents/invalid-id", nil)
+	req = httptest.NewRequest(
+		http.MethodDelete,
+		"/api/v1/ns/test-namespace/documents/invalid-id",
+		nil,
+	)
 	w = httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
@@ -470,15 +526,29 @@ func TestNamespaceIsolation(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code, "Document should not be accessible from different namespace")
+	require.Equal(
+		t,
+		http.StatusNotFound,
+		w.Code,
+		"Document should not be accessible from different namespace",
+	)
 
 	// Try to delete via namespace-b (should fail)
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/ns/namespace-b/documents/"+documentID, nil)
+	req = httptest.NewRequest(
+		http.MethodDelete,
+		"/api/v1/ns/namespace-b/documents/"+documentID,
+		nil,
+	)
 	w = httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code, "Document should not be deletable from different namespace")
+	require.Equal(
+		t,
+		http.StatusNotFound,
+		w.Code,
+		"Document should not be deletable from different namespace",
+	)
 
 	// Verify it's still accessible from namespace-a
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/ns/namespace-a/documents/"+documentID, nil)
@@ -486,7 +556,12 @@ func TestNamespaceIsolation(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusOK, w.Code, "Document should still be accessible from correct namespace")
+	require.Equal(
+		t,
+		http.StatusOK,
+		w.Code,
+		"Document should still be accessible from correct namespace",
+	)
 	require.Equal(t, fileContent, w.Body.Bytes())
 }
 
