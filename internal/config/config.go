@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/spf13/viper"
 )
@@ -34,8 +35,17 @@ type DatabaseConfig struct {
 
 // URL constructs the PostgreSQL connection URL from individual fields
 func (d DatabaseConfig) URL() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		d.User, d.Password, d.Host, d.Port, d.Database, d.SSLMode)
+	userinfo := url.UserPassword(d.User, d.Password)
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   userinfo,
+		Host:   fmt.Sprintf("%s:%d", d.Host, d.Port),
+		Path:   "/" + d.Database,
+	}
+	q := u.Query()
+	q.Set("sslmode", d.SSLMode)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // NATSConfig holds NATS-related configuration

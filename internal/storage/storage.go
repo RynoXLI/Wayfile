@@ -102,7 +102,7 @@ func (s *Storage) Upload(ctx context.Context,
 
 	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
 	if err != nil {
-		return nil, err
+		return nil, ErrNotFound
 	}
 
 	namespaceUUID, err := uuid.Parse(ns.ID.String())

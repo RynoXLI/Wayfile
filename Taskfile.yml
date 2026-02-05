@@ -48,6 +48,16 @@ tasks:
     cmds:
       - golangci-lint run --fix
 
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - go test -tags=integration ./cmd/api/... -v
+
   check:
     desc: Run all checks (format, lint, test)
     cmds:

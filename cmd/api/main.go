@@ -108,6 +108,18 @@ func main() {
 		logger:  logger,
 	}
 
+	// Setup router
+	r := ChiRouter(app)
+
+	// Start server
+	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	logger.Info("Server listening", "address", addr)
+	if err := http.ListenAndServe(addr, r); err != nil {
+		logger.Error("Server failed", "error", err)
+	}
+}
+
+func ChiRouter(app *App) chi.Router {
 	// Create Chi router
 	r := chi.NewRouter()
 
@@ -129,12 +141,7 @@ func main() {
 	// Swagger UI
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	// Start server
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	logger.Info("Server listening", "address", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		logger.Error("Server failed", "error", err)
-	}
+	return r
 }
 
 type App struct {
@@ -214,6 +221,10 @@ func (app *App) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, storage.ErrDuplicateFile) {
 			http.Error(w, "File with this content already exists", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, storage.ErrNotFound) {
+			http.Error(w, "Namespace not found", http.StatusNotFound)
 			return
 		}
 		app.logger.Error(
