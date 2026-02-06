@@ -15,9 +15,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/RynoXLI/Wayfile/internal/auth"
+	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
+	"github.com/RynoXLI/Wayfile/internal/events"
+	"github.com/RynoXLI/Wayfile/internal/services"
 	"github.com/RynoXLI/Wayfile/internal/storage"
-	"github.com/RynoXLI/Wayfile/pkg/events"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
@@ -115,15 +118,33 @@ func setupTestApp(t *testing.T) *testApp {
 	// Initialize event publisher and storage
 	publisher := events.NewPublisher(js)
 	queries := sqlc.New(pool)
-	storageService := storage.NewStorage(localClient, queries, publisher, logger)
+	storageService := storage.NewStorage(localClient, queries, logger)
+
+	// Initialize document service
+	signer := auth.NewSigner("test-secret")
+	baseURL := "http://localhost:8080"
+	documentService := services.NewDocumentService(storageService, publisher, signer, baseURL)
 
 	// Initialize app
 	app := &App{
-		storage: storageService,
-		logger:  logger,
+		documentService: documentService,
+		logger:          logger,
+		signer:          signer,
+		baseURL:         baseURL,
+		pool:            pool,
+		nc:              nc,
 	}
 
-	r := ChiRouter(app)
+	// Create test config
+	testCfg := &config.Config{
+		Server: config.ServerConfig{
+			RateLimitRPS:   1000,
+			RateLimitBurst: 2000,
+			MaxUploadSize:  104857600, // 100 MB
+		},
+	}
+
+	r := ChiRouter(app, testCfg)
 
 	return &testApp{
 		app:         app,

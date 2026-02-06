@@ -12,9 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	eventsv1 "github.com/RynoXLI/Wayfile/gen/go/events/v1"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
-	"github.com/RynoXLI/Wayfile/pkg/events"
 )
 
 // Client defines the interface for storage backends
@@ -37,24 +35,21 @@ type Client interface {
 
 // Storage is the backend for managing document storage
 type Storage struct {
-	client    Client
-	queries   *sqlc.Queries
-	publisher events.Publisher
-	logger    *slog.Logger
+	client  Client
+	queries *sqlc.Queries
+	logger  *slog.Logger
 }
 
 // NewStorage creates a new Storage instance
 func NewStorage(
 	client Client,
 	queries *sqlc.Queries,
-	publisher events.Publisher,
 	logger *slog.Logger,
 ) *Storage {
 	return &Storage{
-		client:    client,
-		queries:   queries,
-		publisher: publisher,
-		logger:    logger,
+		client:  client,
+		queries: queries,
+		logger:  logger,
 	}
 }
 
@@ -162,18 +157,16 @@ func (s *Storage) Upload(ctx context.Context,
 		return nil, err
 	}
 
-	// Emit NATS event via JetStream
-	event := &eventsv1.DocumentUploadedEvent{
-		DocumentId:  docID.String(),
-		NamespaceId: namespaceUUID.String(),
-		Filename:    filename,
-		MimeType:    mimeType,
-	}
-	err = s.publisher.DocumentUploaded(event)
-	if err != nil {
-		return nil, err
-	}
 	return &doc, nil
+}
+
+// GetNamespaceID retrieves the namespace UUID by name
+func (s *Storage) GetNamespaceID(ctx context.Context, namespace string) (string, error) {
+	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
+	if err != nil {
+		return "", ErrNotFound
+	}
+	return ns.ID.String(), nil
 }
 
 // Download retrieves a document from storage

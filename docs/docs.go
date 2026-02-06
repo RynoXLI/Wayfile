@@ -9,12 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "url": "http://www.swagger.io/support",
-            "email": "support@swagger.io"
-        },
+        "contact": {},
         "license": {
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
@@ -125,6 +120,18 @@ const docTemplate = `{
                         "name": "documentID",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pre-signed token for authentication",
+                        "name": "token",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token expiration timestamp",
+                        "name": "expires",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -132,6 +139,12 @@ const docTemplate = `{
                         "description": "File content",
                         "schema": {
                             "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid or expired token",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "404": {
@@ -208,37 +221,17 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2024-01-15T10:00:00Z"
                 },
-                "document_date": {
+                "download_url": {
                     "type": "string",
-                    "example": "2024-01-15"
+                    "example": "http://localhost:8080/api/v1/ns/my-namespace/documents/123e4567-e89b-12d3-a456-426614174000?token=abc.def.123.sig"
                 },
                 "file_name": {
                     "type": "string",
                     "example": "document.pdf"
                 },
-                "file_size": {
-                    "type": "integer",
-                    "example": 102400
-                },
                 "id": {
                     "type": "string",
                     "example": "123e4567-e89b-12d3-a456-426614174000"
-                },
-                "mime_type": {
-                    "type": "string",
-                    "example": "application/pdf"
-                },
-                "modified_at": {
-                    "type": "string",
-                    "example": "2024-01-15T10:00:00Z"
-                },
-                "namespace_id": {
-                    "type": "string",
-                    "example": "123e4567-e89b-12d3-a456-426614174001"
-                },
-                "page_count": {
-                    "type": "integer",
-                    "example": 10
                 },
                 "title": {
                     "type": "string",
@@ -270,7 +263,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "0.1.0",
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},

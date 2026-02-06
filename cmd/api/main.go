@@ -29,19 +29,23 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	_ "github.com/RynoXLI/Wayfile/docs"
+	"github.com/RynoXLI/Wayfile/internal/auth"
 	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
+	"github.com/RynoXLI/Wayfile/internal/events"
+	"github.com/RynoXLI/Wayfile/internal/middleware"
+	"github.com/RynoXLI/Wayfile/internal/services"
 	"github.com/RynoXLI/Wayfile/internal/storage"
-	"github.com/RynoXLI/Wayfile/pkg/events"
 )
 
 func main() {
@@ -63,8 +67,14 @@ func main() {
 
 	ctx := context.Background()
 
+	// Parse connection string from config into pool config
+	poolConfig, err := pgxpool.ParseConfig(cfg.Database.URL)
+	if err != nil {
+		log.Fatal("Unable to parse database config:", err)
+	}
+
 	// Connect to PostgreSQL
-	pool, err := pgxpool.New(ctx, cfg.Database.URL())
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatal("Unable to connect to database:", err)
 	}
@@ -100,32 +110,66 @@ func main() {
 	// Initialize event publisher and storage
 	publisher := events.NewPublisher(js)
 	queries := sqlc.New(pool)
-	storageService := storage.NewStorage(localClient, queries, publisher, logger)
+	storageService := storage.NewStorage(localClient, queries, logger)
+
+	// Initialize document service
+	signer := auth.NewSigner(cfg.Server.SigningSecret)
+	documentService := services.NewDocumentService(
+		storageService,
+		publisher,
+		signer,
+		cfg.Server.BaseURL,
+	)
 
 	// Initialize app
 	app := &App{
-		storage: storageService,
-		logger:  logger,
+		documentService: documentService,
+		logger:          logger,
+		signer:          signer,
+		baseURL:         cfg.Server.BaseURL,
+		pool:            pool,
+		nc:              nc,
 	}
 
 	// Setup router
-	r := ChiRouter(app)
+	r := ChiRouter(app, cfg)
 
-	// Start server
+	// Start server with timeouts
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
+		IdleTimeout:  time.Duration(cfg.Server.IdleTimeout) * time.Second,
+	}
+
 	logger.Info("Server listening", "address", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		logger.Error("Server failed", "error", err)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatal("Server failed:", err)
 	}
 }
 
-func ChiRouter(app *App) chi.Router {
+func ChiRouter(app *App, cfg *config.Config) chi.Router {
 	// Create Chi router
 	r := chi.NewRouter()
 
 	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.SetHeader("X-Content-Type-Options", "nosniff"))
+	r.Use(middleware.RateLimiter(cfg.Server.RateLimitRPS, cfg.Server.RateLimitBurst))
+
+	// Apply max upload size to POST routes only
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				r.Body = http.MaxBytesReader(w, r.Body, cfg.Server.MaxUploadSize)
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// Register routes under /api/v1
 	r.Route("/api/v1", func(r chi.Router) {
@@ -145,8 +189,12 @@ func ChiRouter(app *App) chi.Router {
 }
 
 type App struct {
-	storage *storage.Storage
-	logger  *slog.Logger
+	documentService *services.DocumentService
+	logger          *slog.Logger
+	signer          *auth.Signer
+	baseURL         string
+	pool            *pgxpool.Pool
+	nc              *nats.Conn
 }
 
 // validateUUID checks if a string is a valid UUID and writes 404 if not
@@ -161,12 +209,30 @@ func (app *App) validateUUID(w http.ResponseWriter, id string) bool {
 // healthHandler godoc
 //
 //	@Summary		Health check
-//	@Description	Check if the API server is running
+//	@Description	Check if the API server is running and dependencies are healthy
 //	@Tags			health
 //	@Produce		plain
 //	@Success		200	{string}	string	"OK"
+//	@Failure		503	{string}	string	"Service Unavailable"
 //	@Router			/health [get]
-func (app *App) healthHandler(w http.ResponseWriter, _ *http.Request) {
+func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	// Check database
+	if err := app.pool.Ping(ctx); err != nil {
+		app.logger.Error("Health check failed: database", "error", err)
+		http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Check NATS
+	if !app.nc.IsConnected() {
+		app.logger.Error("Health check failed: NATS disconnected")
+		http.Error(w, "Message queue unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("OK"))
 	if err != nil {
@@ -216,8 +282,15 @@ func (app *App) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	namespace := chi.URLParam(r, "namespace")
 	ctx := r.Context()
 
-	// Upload the file using the storage service
-	doc, err := app.storage.Upload(ctx, namespace, filename, mimeType, int(size), file)
+	// Upload the file using the document service
+	result, err := app.documentService.UploadDocument(
+		ctx,
+		namespace,
+		filename,
+		mimeType,
+		int(size),
+		file,
+	)
 	if err != nil {
 		if errors.Is(err, storage.ErrDuplicateFile) {
 			http.Error(w, "File with this content already exists", http.StatusConflict)
@@ -240,9 +313,19 @@ func (app *App) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create response with download URL
+	response := DocumentResponse{
+		ID:          result.Document.ID.String(),
+		FileName:    result.Document.FileName,
+		Title:       result.Document.Title,
+		ChecksumSHA: result.Document.ChecksumSha256,
+		DownloadURL: result.DownloadURL,
+		CreatedAt:   result.Document.CreatedAt.Time,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(doc)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		app.logger.Error("Failed to encode response", "error", err)
 	}
@@ -256,8 +339,11 @@ func (app *App) uploadHandler(w http.ResponseWriter, r *http.Request) {
 //	@Produce		octet-stream
 //	@Param			namespace	path		string	true	"Namespace name"
 //	@Param			documentID	path		string	true	"Document UUID"
+//	@Param			token		query		string	false	"Pre-signed token for authentication"
+//	@Param			expires		query		string	false	"Token expiration timestamp"
 //	@Success		200			{file}		file	"File content"
 //	@Failure		404			{string}	string	"File not found"
+//	@Failure		401			{string}	string	"Invalid or expired token"
 //	@Failure		500			{string}	string	"Internal server error"
 //	@Router			/ns/{namespace}/documents/{documentID} [get]
 func (app *App) downloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -270,10 +356,33 @@ func (app *App) downloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for pre-signed token
+	token := r.URL.Query().Get("token")
+	if token != "" {
+		// Verify the token
+		tokenNs, tokenDocID, err := app.signer.VerifyToken(token)
+		if err != nil {
+			if errors.Is(err, auth.ErrTokenExpired) {
+				http.Error(w, "Token expired", http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Ensure token matches requested resource
+		if tokenNs != namespace || tokenDocID != documentID {
+			http.Error(w, "Token does not match requested resource", http.StatusUnauthorized)
+			return
+		}
+	}
+	// If no token, this is a regular authenticated request
+	// Add your auth middleware here when needed
+
 	ctx := r.Context()
 
 	// Download the file from storage
-	fileReader, doc, err := app.storage.Download(ctx, namespace, documentID)
+	fileReader, doc, err := app.documentService.DownloadDocument(ctx, namespace, documentID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, "File not found", http.StatusNotFound)
@@ -324,7 +433,7 @@ func (app *App) deleteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Delete the file from storage
-	err := app.storage.Delete(ctx, namespace, documentID)
+	err := app.documentService.DeleteDocument(ctx, namespace, documentID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, "File not found", http.StatusNotFound)

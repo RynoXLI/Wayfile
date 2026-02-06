@@ -3,7 +3,6 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/spf13/viper"
 )
@@ -19,33 +18,21 @@ type Config struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port           int    `mapstructure:"port"`
+	Host           string `mapstructure:"host"`
+	BaseURL        string `mapstructure:"base_url"`
+	SigningSecret  string `mapstructure:"signing_secret"`
+	ReadTimeout    int    `mapstructure:"read_timeout"`     // seconds
+	WriteTimeout   int    `mapstructure:"write_timeout"`    // seconds
+	IdleTimeout    int    `mapstructure:"idle_timeout"`     // seconds
+	RateLimitRPS   int    `mapstructure:"rate_limit_rps"`   // requests per second
+	RateLimitBurst int    `mapstructure:"rate_limit_burst"` // burst size
+	MaxUploadSize  int64  `mapstructure:"max_upload_size"`  // bytes
 }
 
 // DatabaseConfig holds database-related configuration
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Database string `mapstructure:"database"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	SSLMode  string `mapstructure:"sslmode"`
-}
-
-// URL constructs the PostgreSQL connection URL from individual fields
-func (d DatabaseConfig) URL() string {
-	userinfo := url.UserPassword(d.User, d.Password)
-	u := &url.URL{
-		Scheme: "postgres",
-		User:   userinfo,
-		Host:   fmt.Sprintf("%s:%d", d.Host, d.Port),
-		Path:   "/" + d.Database,
-	}
-	q := u.Query()
-	q.Set("sslmode", d.SSLMode)
-	u.RawQuery = q.Encode()
-	return u.String()
+	URL string `mapstructure:"url"`
 }
 
 // NATSConfig holds NATS-related configuration

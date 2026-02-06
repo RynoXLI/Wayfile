@@ -8,30 +8,15 @@ definitions:
       created_at:
         example: "2024-01-15T10:00:00Z"
         type: string
-      document_date:
-        example: "2024-01-15"
+      download_url:
+        example: http://localhost:8080/api/v1/ns/my-namespace/documents/123e4567-e89b-12d3-a456-426614174000?token=abc.def.123.sig
         type: string
       file_name:
         example: document.pdf
         type: string
-      file_size:
-        example: 102400
-        type: integer
       id:
         example: 123e4567-e89b-12d3-a456-426614174000
         type: string
-      mime_type:
-        example: application/pdf
-        type: string
-      modified_at:
-        example: "2024-01-15T10:00:00Z"
-        type: string
-      namespace_id:
-        example: 123e4567-e89b-12d3-a456-426614174001
-        type: string
-      page_count:
-        example: 10
-        type: integer
       title:
         example: document.pdf
         type: string
@@ -44,17 +29,13 @@ definitions:
     type: object
 host: localhost:8080
 info:
-  contact:
-    email: support@swagger.io
-    name: API Support
-    url: http://www.swagger.io/support
+  contact: {}
   description: Document storage and management API
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  termsOfService: http://swagger.io/terms/
   title: Wayfile Document API
-  version: "1.0"
+  version: 0.1.0
 paths:
   /health:
     get:
@@ -152,6 +133,14 @@ paths:
         name: documentID
         required: true
         type: string
+      - description: Pre-signed token for authentication
+        in: query
+        name: token
+        type: string
+      - description: Token expiration timestamp
+        in: query
+        name: expires
+        type: string
       produces:
       - application/octet-stream
       responses:
@@ -159,6 +148,10 @@ paths:
           description: File content
           schema:
             type: file
+        "401":
+          description: Invalid or expired token
+          schema:
+            type: string
         "404":
           description: File not found
           schema:
