@@ -150,12 +150,12 @@ paths:
                 - file
               type: object
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DocumentResponse"
-          description: OK
+          description: Created
         default:
           content:
             application/problem+json:

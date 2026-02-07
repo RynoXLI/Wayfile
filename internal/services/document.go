@@ -52,20 +52,19 @@ func (s *DocumentService) UploadDocument(
 	fileSize int,
 	data io.Reader,
 ) (*DocumentUploadResult, error) {
-	doc, err := s.storage.Upload(ctx, namespace, filename, mimeType, fileSize, data)
+	result, err := s.storage.Upload(ctx, namespace, filename, mimeType, fileSize, data)
 	if err != nil {
 		return nil, err
 	}
 
-	docID := doc.ID.String()
-	token := s.signer.GenerateToken(namespace, docID, 24*time.Hour)
+	docID := result.Document.ID.String()
+	token := s.signer.GenerateToken(result.NamespaceID, docID, 24*time.Hour)
 	downloadURL := fmt.Sprintf("%s/api/v1/ns/%s/documents/%s?token=%s",
 		s.baseURL, namespace, docID, token)
 
-	namespaceID, _ := s.storage.GetNamespaceID(ctx, namespace)
 	event := &eventsv1.DocumentUploadedEvent{
 		DocumentId:  docID,
-		NamespaceId: namespaceID,
+		NamespaceId: result.NamespaceID,
 		Filename:    filename,
 		MimeType:    mimeType,
 	}
@@ -74,7 +73,7 @@ func (s *DocumentService) UploadDocument(
 	}
 
 	return &DocumentUploadResult{
-		Document:    doc,
+		Document:    result.Document,
 		DownloadURL: downloadURL,
 	}, nil
 }

@@ -34,10 +34,11 @@ func NewSigner(secret string) *Signer {
 }
 
 // GenerateToken creates a signed token for a resource with expiration
-// Format: namespace.docID.expiresUnix.signature
-func (s *Signer) GenerateToken(namespace, docID string, ttl time.Duration) string {
+// Format: namespaceUUID.docID.expiresUnix.signature
+// Uses namespace UUID to avoid delimiter conflicts and simplify token format
+func (s *Signer) GenerateToken(namespaceUUID, docID string, ttl time.Duration) string {
 	expiresAt := time.Now().Add(ttl).Unix()
-	data := fmt.Sprintf("%s.%s.%d", namespace, docID, expiresAt)
+	data := fmt.Sprintf("%s.%s.%d", namespaceUUID, docID, expiresAt)
 
 	// Generate HMAC signature
 	signature := s.sign(data)
@@ -47,16 +48,16 @@ func (s *Signer) GenerateToken(namespace, docID string, ttl time.Duration) strin
 	return token
 }
 
-// VerifyToken validates a token and extracts namespace and docID
-// Returns namespace, docID, or error if invalid/expired
-func (s *Signer) VerifyToken(token string) (namespace, docID string, err error) {
+// VerifyToken validates a token and extracts namespace UUID and docID
+// Returns namespaceUUID, docID, or error if invalid/expired
+func (s *Signer) VerifyToken(token string) (namespaceUUID, docID string, err error) {
 	// Split token into parts
 	parts := strings.Split(token, ".")
 	if len(parts) != 4 {
 		return "", "", ErrInvalidToken
 	}
 
-	namespace = parts[0]
+	namespaceUUID = parts[0]
 	docID = parts[1]
 	expiresStr := parts[2]
 	providedSig := parts[3]
@@ -73,14 +74,14 @@ func (s *Signer) VerifyToken(token string) (namespace, docID string, err error) 
 	}
 
 	// Reconstruct data and verify signature
-	data := fmt.Sprintf("%s.%s.%d", namespace, docID, expiresAt)
+	data := fmt.Sprintf("%s.%s.%d", namespaceUUID, docID, expiresAt)
 	expectedSig := s.sign(data)
 
 	if !hmac.Equal([]byte(expectedSig), []byte(providedSig)) {
 		return "", "", ErrInvalidSignature
 	}
 
-	return namespace, docID, nil
+	return namespaceUUID, docID, nil
 }
 
 // sign creates an HMAC-SHA256 signature of the data

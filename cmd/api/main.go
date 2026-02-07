@@ -164,9 +164,20 @@ func main() {
 
 	// Add endpoint for OpenAPI 3.0.3 (downgraded for oapi-codegen)
 	router.Get("/openapi-3.0.yaml", func(w http.ResponseWriter, _ *http.Request) {
-		b, _ := api.OpenAPI().DowngradeYAML()
+		b, err := api.OpenAPI().DowngradeYAML()
+		if err != nil {
+			logger.Error("failed to downgrade OpenAPI spec", "error", err)
+			http.Error(
+				w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError,
+			)
+			return
+		}
 		w.Header().Set("Content-Type", "application/x-yaml")
-		_, _ = w.Write(b)
+		if _, err := w.Write(b); err != nil {
+			logger.Error("failed to write OpenAPI spec response", "error", err)
+		}
 	})
 
 	// Use h2c for HTTP/2 without TLS (required for Connect RPC)

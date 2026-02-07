@@ -87,7 +87,17 @@ func Load() (*Config, error) {
 	viper.SetDefault("server.port", 8080)
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.base_url", "http://localhost:8080")
+	viper.SetDefault("server.read_timeout", 10)           // 10 seconds
+	viper.SetDefault("server.write_timeout", 30)          // 30 seconds
+	viper.SetDefault("server.idle_timeout", 120)          // 120 seconds
+	viper.SetDefault("server.rate_limit_rps", 100)        // 100 requests per second
+	viper.SetDefault("server.rate_limit_burst", 200)      // burst of 200
+	viper.SetDefault("server.max_upload_size", 104857600) // 100 MB
 	viper.SetDefault("server.enable_docs", true)
+	viper.SetDefault("storage.type", "local")
+	viper.SetDefault("storage.local.path", "./data/storage")
+	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.format", "json")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -96,6 +106,22 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Validate required fields
+	if cfg.Server.SigningSecret == "" {
+		return nil, fmt.Errorf("server.signing_secret is required for pre-signed URL security")
+	}
+	if cfg.Server.SigningSecret == "change-me-in-production-use-random-string" {
+		return nil, fmt.Errorf(
+			"server.signing_secret must be changed from default value in production",
+		)
+	}
+	if cfg.Database.URL == "" {
+		return nil, fmt.Errorf("database.url is required")
+	}
+	if cfg.NATS.URL == "" {
+		return nil, fmt.Errorf("nats.url is required")
 	}
 
 	return &cfg, nil

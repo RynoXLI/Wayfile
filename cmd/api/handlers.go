@@ -30,8 +30,7 @@ type DocumentUploadInput struct {
 
 // DocumentUploadOutput is the upload response
 type DocumentUploadOutput struct {
-	Status int `header:"Status-Code"`
-	Body   DocumentResponse
+	Body DocumentResponse
 }
 
 // DocumentResponse represents the response for document operations
@@ -84,12 +83,13 @@ func RegisterRoutes(api huma.API, app *App) {
 
 	// Upload document
 	huma.Register(api, huma.Operation{
-		OperationID: "upload-document",
-		Method:      "POST",
-		Path:        "/api/v1/ns/{namespace}/documents",
-		Summary:     "Upload a document",
-		Description: "Upload a file to the specified namespace",
-		Tags:        []string{"documents"},
+		OperationID:   "upload-document",
+		Method:        "POST",
+		Path:          "/api/v1/ns/{namespace}/documents",
+		Summary:       "Upload a document",
+		Description:   "Upload a file to the specified namespace",
+		Tags:          []string{"documents"},
+		DefaultStatus: 201,
 	}, func(ctx context.Context, input *DocumentUploadInput) (*DocumentUploadOutput, error) {
 		// Get file data from multipart form
 		formData := input.RawBody.Data()
@@ -126,7 +126,6 @@ func RegisterRoutes(api huma.API, app *App) {
 
 		// Create response with download URL
 		resp := &DocumentUploadOutput{}
-		resp.Status = 201
 		resp.Body = DocumentResponse{
 			ID:          result.Document.ID.String(),
 			FileName:    result.Document.FileName,
@@ -153,21 +152,6 @@ func RegisterRoutes(api huma.API, app *App) {
 			return nil, huma.Error404NotFound("Invalid document ID")
 		}
 
-		// Verify token if provided
-		if input.Token != "" {
-			ns, docID, err := app.signer.VerifyToken(input.Token)
-			if err != nil {
-				if errors.Is(err, auth.ErrTokenExpired) {
-					return nil, huma.Error401Unauthorized("Token expired")
-				}
-				return nil, huma.Error401Unauthorized("Invalid token")
-			}
-			// Verify token is for the correct resource
-			if ns != input.Namespace || docID != input.DocumentID {
-				return nil, huma.Error401Unauthorized("Token not valid for this resource")
-			}
-		}
-
 		// Download the file
 		file, doc, err := app.documentService.DownloadDocument(
 			ctx,
@@ -180,6 +164,24 @@ func RegisterRoutes(api huma.API, app *App) {
 			}
 			app.logger.Error("Failed to download file", "error", err)
 			return nil, huma.Error500InternalServerError("Error downloading the file")
+		}
+
+		// Verify token if provided
+		if input.Token != "" {
+			tokenNsUUID, tokenDocID, err := app.signer.VerifyToken(input.Token)
+			if err != nil {
+				_ = file.Close()
+				if errors.Is(err, auth.ErrTokenExpired) {
+					return nil, huma.Error401Unauthorized("Token expired")
+				}
+				return nil, huma.Error401Unauthorized("Invalid token")
+			}
+
+			// Verify token is for the correct resource using document's namespace_id
+			if tokenNsUUID != doc.NamespaceID.String() || tokenDocID != input.DocumentID {
+				_ = file.Close()
+				return nil, huma.Error401Unauthorized("Token not valid for this resource")
+			}
 		}
 
 		// Return streaming response

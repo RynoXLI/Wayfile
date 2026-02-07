@@ -3,6 +3,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -31,7 +32,10 @@ func (s *DocumentsServiceServer) DeleteDocument(
 ) (*documentsv1.DeleteDocumentResponse, error) {
 	// Validate namespace
 	if req.Namespace == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, nil)
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
 	}
 
 	// Validate UUID
@@ -57,5 +61,8 @@ func (s *DocumentsServiceServer) UpdateDocument(
 	_ *documentsv1.UpdateDocumentRequest,
 ) (*documentsv1.Document, error) {
 	// TODO: Implement update logic
-	return nil, connect.NewError(connect.CodeUnimplemented, nil)
+	return nil, connect.NewError(
+		connect.CodeUnimplemented,
+		errors.New("update document not yet implemented"),
+	)
 }

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -82,13 +83,19 @@ func (s *Storage) validateDocument(
 	return &doc, nil
 }
 
+// UploadResult contains the uploaded document and its namespace ID
+type UploadResult struct {
+	Document    *sqlc.CreateDocumentRow
+	NamespaceID string
+}
+
 // Upload uploads a document to storage, records its metadata in the database, and emits an event
 func (s *Storage) Upload(ctx context.Context,
 	namespace string,
 	filename string,
 	mimeType string,
 	fileSize int,
-	data io.Reader) (*sqlc.CreateDocumentRow, error) {
+	data io.Reader) (*UploadResult, error) {
 	docID := uuid.New()
 
 	// Calculate checksum while uploading using TeeReader
@@ -157,14 +164,20 @@ func (s *Storage) Upload(ctx context.Context,
 		return nil, err
 	}
 
-	return &doc, nil
+	return &UploadResult{
+		Document:    &doc,
+		NamespaceID: ns.ID.String(),
+	}, nil
 }
 
 // GetNamespaceID retrieves the namespace UUID by name
 func (s *Storage) GetNamespaceID(ctx context.Context, namespace string) (string, error) {
 	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
 	if err != nil {
-		return "", ErrNotFound
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
 	}
 	return ns.ID.String(), nil
 }
