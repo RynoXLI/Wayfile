@@ -305,7 +305,7 @@ func TestUploadDocument(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("Upload failed with status %d: %s", w.Code, w.Body.String())
 	}
-	
+
 	// Verify correct status code (201 Created, not 200 OK)
 	require.Equal(t, http.StatusCreated, w.Code, "Upload should return 201 Created")
 
@@ -364,7 +364,12 @@ func TestUploadDocument(t *testing.T) {
 	)
 	w = httptest.NewRecorder()
 	ta.router.ServeHTTP(w, req)
-	require.Equal(t, http.StatusUnauthorized, w.Code, "Token with wrong namespace UUID should be rejected")
+	require.Equal(
+		t,
+		http.StatusUnauthorized,
+		w.Code,
+		"Token with wrong namespace UUID should be rejected",
+	)
 
 	// === Step 3: Try to upload the same file again (should get 409 Conflict) ===
 	body = &bytes.Buffer{}
