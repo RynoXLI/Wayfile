@@ -3,7 +3,6 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/spf13/viper"
 )
@@ -19,33 +18,22 @@ type Config struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port           int    `mapstructure:"port"`
+	Host           string `mapstructure:"host"`
+	BaseURL        string `mapstructure:"base_url"`
+	SigningSecret  string `mapstructure:"signing_secret"`
+	ReadTimeout    int    `mapstructure:"read_timeout"`     // seconds
+	WriteTimeout   int    `mapstructure:"write_timeout"`    // seconds
+	IdleTimeout    int    `mapstructure:"idle_timeout"`     // seconds
+	RateLimitRPS   int    `mapstructure:"rate_limit_rps"`   // requests per second
+	RateLimitBurst int    `mapstructure:"rate_limit_burst"` // burst size
+	MaxUploadSize  int64  `mapstructure:"max_upload_size"`  // bytes
+	EnableDocs     bool   `mapstructure:"enable_docs"`      // enable /docs endpoint
 }
 
 // DatabaseConfig holds database-related configuration
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Database string `mapstructure:"database"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	SSLMode  string `mapstructure:"sslmode"`
-}
-
-// URL constructs the PostgreSQL connection URL from individual fields
-func (d DatabaseConfig) URL() string {
-	userinfo := url.UserPassword(d.User, d.Password)
-	u := &url.URL{
-		Scheme: "postgres",
-		User:   userinfo,
-		Host:   fmt.Sprintf("%s:%d", d.Host, d.Port),
-		Path:   "/" + d.Database,
-	}
-	q := u.Query()
-	q.Set("sslmode", d.SSLMode)
-	u.RawQuery = q.Encode()
-	return u.String()
+	URL string `mapstructure:"url"`
 }
 
 // NATSConfig holds NATS-related configuration
@@ -95,6 +83,22 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to bind env variable: %w", err)
 	}
 
+	// Set defaults
+	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.host", "0.0.0.0")
+	viper.SetDefault("server.base_url", "http://localhost:8080")
+	viper.SetDefault("server.read_timeout", 10)           // 10 seconds
+	viper.SetDefault("server.write_timeout", 30)          // 30 seconds
+	viper.SetDefault("server.idle_timeout", 120)          // 120 seconds
+	viper.SetDefault("server.rate_limit_rps", 100)        // 100 requests per second
+	viper.SetDefault("server.rate_limit_burst", 200)      // burst of 200
+	viper.SetDefault("server.max_upload_size", 104857600) // 100 MB
+	viper.SetDefault("server.enable_docs", true)
+	viper.SetDefault("storage.type", "local")
+	viper.SetDefault("storage.local.path", "./data/storage")
+	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.format", "json")
+
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
@@ -102,6 +106,17 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Validate required fields
+	if cfg.Server.SigningSecret == "" {
+		return nil, fmt.Errorf("server.signing_secret is required for pre-signed URL security")
+	}
+	if cfg.Database.URL == "" {
+		return nil, fmt.Errorf("database.url is required")
+	}
+	if cfg.NATS.URL == "" {
+		return nil, fmt.Errorf("nats.url is required")
 	}
 
 	return &cfg, nil

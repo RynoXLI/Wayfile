@@ -14,11 +14,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
-	"github.com/RynoXLI/Wayfile/internal/storage"
-	"github.com/RynoXLI/Wayfile/pkg/events"
+	"connectrpc.com/connect"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/nats-io/nats-server/v2/server"
@@ -27,17 +31,32 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+
+	"github.com/RynoXLI/Wayfile/cmd/api/rpc"
+	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1"
+	"github.com/RynoXLI/Wayfile/gen/go/documents/v1/documentsv1connect"
+	"github.com/RynoXLI/Wayfile/internal/auth"
+	"github.com/RynoXLI/Wayfile/internal/config"
+	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
+	"github.com/RynoXLI/Wayfile/internal/events"
+	"github.com/RynoXLI/Wayfile/internal/middleware"
+	"github.com/RynoXLI/Wayfile/internal/services"
+	"github.com/RynoXLI/Wayfile/internal/storage"
 )
 
 // testApp holds all the test dependencies
 type testApp struct {
-	app         *App
-	router      chi.Router
-	pool        *pgxpool.Pool
-	nc          *nats.Conn
-	tmpDir      string
-	pgContainer *postgres.PostgresContainer
-	natsServer  *server.Server
+	app           *App
+	router        http.Handler
+	pool          *pgxpool.Pool
+	nc            *nats.Conn
+	tmpDir        string
+	pgContainer   *postgres.PostgresContainer
+	natsServer    *server.Server
+	connectClient documentsv1connect.DocumentServiceClient
+	testServer    *httptest.Server
 }
 
 // setupTestApp initializes the application for integration testing
@@ -115,30 +134,100 @@ func setupTestApp(t *testing.T) *testApp {
 	// Initialize event publisher and storage
 	publisher := events.NewPublisher(js)
 	queries := sqlc.New(pool)
-	storageService := storage.NewStorage(localClient, queries, publisher, logger)
+	storageService := storage.NewStorage(localClient, queries, logger)
+
+	// Initialize document service
+	signer := auth.NewSigner("test-secret")
+	baseURL := "http://localhost:8080"
+	documentService := services.NewDocumentService(storageService, publisher, signer, baseURL)
 
 	// Initialize app
 	app := &App{
-		storage: storageService,
-		logger:  logger,
+		documentService: documentService,
+		logger:          logger,
+		signer:          signer,
+		baseURL:         baseURL,
+		pool:            pool,
+		nc:              nc,
 	}
 
-	r := ChiRouter(app)
+	// Create test config
+	testCfg := &config.Config{
+		Server: config.ServerConfig{
+			RateLimitRPS:   1000,
+			RateLimitBurst: 2000,
+			MaxUploadSize:  104857600, // 100 MB
+			BaseURL:        baseURL,
+		},
+	}
+
+	// Setup router with Huma
+	router := chi.NewRouter()
+	router.Use(chimiddleware.RequestID)
+	router.Use(chimiddleware.Logger)
+	router.Use(chimiddleware.Recoverer)
+	router.Use(middleware.RateLimiter(testCfg.Server.RateLimitRPS, testCfg.Server.RateLimitBurst))
+
+	// Apply max upload size to POST routes only
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				r.Body = http.MaxBytesReader(w, r.Body, testCfg.Server.MaxUploadSize)
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Create Huma API
+	humaConfig := huma.DefaultConfig("Wayfile Document API", "0.1.0")
+	humaConfig.Servers = []*huma.Server{
+		{URL: baseURL},
+	}
+	api := humachi.New(router, humaConfig)
+
+	// Register all routes
+	RegisterRoutes(api, app)
+
+	// Mount Connect RPC handlers
+	documentsRPCService := rpc.NewDocumentsServiceServer(documentService)
+	connectPath, connectHandler := documentsv1connect.NewDocumentServiceHandler(
+		documentsRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(connectPath, connectHandler)
+
+	// Wrap with h2c for HTTP/2
+	h2cHandler := h2c.NewHandler(router, &http2.Server{})
+
+	// Start test HTTP server
+	testServer := httptest.NewServer(h2cHandler)
+
+	// Create Connect RPC client using test server URL
+	connectClient := documentsv1connect.NewDocumentServiceClient(
+		http.DefaultClient,
+		testServer.URL,
+	)
 
 	return &testApp{
-		app:         app,
-		router:      r,
-		pool:        pool,
-		nc:          nc,
-		tmpDir:      tmpDir,
-		pgContainer: pgContainer,
-		natsServer:  natsServer,
+		app:           app,
+		router:        h2cHandler,
+		pool:          pool,
+		nc:            nc,
+		tmpDir:        tmpDir,
+		pgContainer:   pgContainer,
+		natsServer:    natsServer,
+		connectClient: connectClient,
+		testServer:    testServer,
 	}
 }
 
 // cleanup tears down test resources
 func (ta *testApp) cleanup(t *testing.T) {
 	ctx := context.Background()
+
+	if ta.testServer != nil {
+		ta.testServer.Close()
+	}
 
 	ta.nc.Close()
 	ta.pool.Close()
@@ -161,13 +250,19 @@ func TestHealthEndpoint(t *testing.T) {
 	ta := setupTestApp(t)
 	defer ta.cleanup(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, "OK", w.Body.String())
+
+	var response struct {
+		Status string `json:"status"`
+	}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, "ok", response.Status)
 }
 
 // TestUploadDocument tests uploading a document
@@ -188,7 +283,11 @@ func TestUploadDocument(t *testing.T) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("file", "test.txt")
+	// Create form file with explicit Content-Type header
+	h := make(map[string][]string)
+	h["Content-Disposition"] = []string{`form-data; name="file"; filename="test.txt"`}
+	h["Content-Type"] = []string{"text/plain; charset=utf-8"}
+	part, err := writer.CreatePart(h)
 	require.NoError(t, err)
 
 	_, err = part.Write(fileContent)
@@ -203,7 +302,12 @@ func TestUploadDocument(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusCreated, w.Code)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Upload failed with status %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify correct status code (201 Created, not 200 OK)
+	require.Equal(t, http.StatusCreated, w.Code, "Upload should return 201 Created")
 
 	var uploadResponse DocumentResponse
 	err = json.NewDecoder(w.Body).Decode(&uploadResponse)
@@ -212,8 +316,17 @@ func TestUploadDocument(t *testing.T) {
 	require.NotEmpty(t, uploadResponse.ID, "Document ID should not be empty")
 	require.Equal(t, "test.txt", uploadResponse.FileName, "Filename should match")
 	require.NotEmpty(t, uploadResponse.ChecksumSHA, "Checksum should not be empty")
+	require.NotEmpty(t, uploadResponse.DownloadURL, "Download URL should be present")
+	require.Contains(t, uploadResponse.DownloadURL, "token=", "Download URL should contain token")
 
 	documentID := uploadResponse.ID
+
+	// Verify MIME type was stored correctly
+	docUUID, err := uuid.Parse(documentID)
+	require.NoError(t, err)
+	doc, err := queries.GetDocumentByID(ctx, pgtype.UUID{Bytes: docUUID, Valid: true})
+	require.NoError(t, err)
+	require.Equal(t, "text/plain; charset=utf-8", doc.MimeType, "MIME type should be text/plain")
 
 	// === Step 2: Download the file and verify content ===
 	req = httptest.NewRequest(
@@ -232,6 +345,30 @@ func TestUploadDocument(t *testing.T) {
 		fileContent,
 		downloadedContent,
 		"Downloaded content should match uploaded content",
+	)
+
+	// === Step 2b: Test pre-signed download URL with token ===
+	req = httptest.NewRequest(http.MethodGet, uploadResponse.DownloadURL, nil)
+	w = httptest.NewRecorder()
+	ta.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "Download with valid token should succeed")
+	require.Equal(t, fileContent, w.Body.Bytes(), "Token download content should match")
+
+	// Test token with wrong namespace UUID should fail
+	wrongNsUUID := uuid.New().String()
+	wrongToken := ta.app.signer.GenerateToken(wrongNsUUID, documentID, 1*time.Hour)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/ns/test-namespace/documents/%s?token=%s", documentID, wrongToken),
+		nil,
+	)
+	w = httptest.NewRecorder()
+	ta.router.ServeHTTP(w, req)
+	require.Equal(
+		t,
+		http.StatusUnauthorized,
+		w.Code,
+		"Token with wrong namespace UUID should be rejected",
 	)
 
 	// === Step 3: Try to upload the same file again (should get 409 Conflict) ===
@@ -255,17 +392,13 @@ func TestUploadDocument(t *testing.T) {
 
 	require.Equal(t, http.StatusConflict, w.Code, "Duplicate file should return 409 Conflict")
 
-	// === Step 4: Delete the document ===
-	req = httptest.NewRequest(
-		http.MethodDelete,
-		"/api/v1/ns/test-namespace/documents/"+documentID,
-		nil,
-	)
-	w = httptest.NewRecorder()
-
-	ta.router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusNoContent, w.Code, "Delete should return 204 No Content")
+	// === Step 4: Delete the document via Connect RPC ===
+	deleteReq := &documentsv1.DeleteDocumentRequest{
+		Namespace:  "test-namespace",
+		DocumentId: documentID,
+	}
+	_, err = ta.connectClient.DeleteDocument(ctx, deleteReq)
+	require.NoError(t, err, "Delete should succeed via Connect RPC")
 
 	// === Step 5: Try to download the deleted file (should get 404) ===
 	req = httptest.NewRequest(
@@ -464,19 +597,23 @@ func TestInvalidDocumentID(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code, "Invalid UUID should return 404")
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code, "Invalid UUID should return 422")
 
-	// Try to delete with invalid UUID
-	req = httptest.NewRequest(
-		http.MethodDelete,
-		"/api/v1/ns/test-namespace/documents/invalid-id",
-		nil,
+	// Try to delete with invalid UUID via Connect RPC
+	deleteReq := &documentsv1.DeleteDocumentRequest{
+		Namespace:  "test-namespace",
+		DocumentId: "invalid-id",
+	}
+	_, err = ta.connectClient.DeleteDocument(ctx, deleteReq)
+	require.Error(t, err, "Delete with invalid UUID should fail")
+	var connectErr *connect.Error
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeInvalidArgument,
+		connectErr.Code(),
+		"Invalid UUID should return InvalidArgument",
 	)
-	w = httptest.NewRecorder()
-
-	ta.router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusNotFound, w.Code, "Invalid UUID should return 404")
 }
 
 // TestNamespaceIsolation tests that documents cannot be accessed across namespaces
@@ -533,20 +670,19 @@ func TestNamespaceIsolation(t *testing.T) {
 		"Document should not be accessible from different namespace",
 	)
 
-	// Try to delete via namespace-b (should fail)
-	req = httptest.NewRequest(
-		http.MethodDelete,
-		"/api/v1/ns/namespace-b/documents/"+documentID,
-		nil,
-	)
-	w = httptest.NewRecorder()
-
-	ta.router.ServeHTTP(w, req)
-
+	// Try to delete via namespace-b (should fail) via Connect RPC
+	deleteReq := &documentsv1.DeleteDocumentRequest{
+		Namespace:  "namespace-b",
+		DocumentId: documentID,
+	}
+	_, err = ta.connectClient.DeleteDocument(ctx, deleteReq)
+	require.Error(t, err, "Delete from different namespace should fail")
+	var connectErr *connect.Error
+	require.ErrorAs(t, err, &connectErr)
 	require.Equal(
 		t,
-		http.StatusNotFound,
-		w.Code,
+		connect.CodeNotFound,
+		connectErr.Code(),
 		"Document should not be deletable from different namespace",
 	)
 
@@ -583,7 +719,7 @@ func TestUploadErrors(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code, "Missing file should return 400")
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code, "Missing file should return 422")
 
 	// Test upload to non-existent namespace
 	fileContent := []byte("Test content")

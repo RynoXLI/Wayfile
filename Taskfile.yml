@@ -21,11 +21,6 @@ tasks:
     cmds:
       - go tool buf generate
 
-  swagger:
-    desc: Generate Swagger documentation
-    cmds:
-      - go tool swag init -g cmd/api/main.go -o docs
-
   tidy:
     desc: Tidy Go modules
     cmds:
@@ -74,3 +69,18 @@ tasks:
       - sqlc
     cmds:
       - go tool air
+
+  openapi:
+    desc: Download OpenAPI 3.0 spec from running server
+    cmds:
+      - curl -s http://localhost:8080/openapi-3.0.yaml > openapi.yaml
+      - echo "OpenAPI 3.0.3 spec saved to openapi.yaml"
+
+  client:
+    desc: Generate Go client from OpenAPI spec
+    deps:
+      - openapi
+    cmds:
+      - mkdir -p gen/client
+      - go tool oapi-codegen -generate types,client -package client openapi.yaml > gen/client/client.go
+      - echo "Client generated in gen/client/client.go"
