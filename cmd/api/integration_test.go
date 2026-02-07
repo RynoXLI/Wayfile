@@ -15,13 +15,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RynoXLI/Wayfile/internal/auth"
-	"github.com/RynoXLI/Wayfile/internal/config"
-	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
-	"github.com/RynoXLI/Wayfile/internal/events"
-	"github.com/RynoXLI/Wayfile/internal/services"
-	"github.com/RynoXLI/Wayfile/internal/storage"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/tern/v2/migrate"
 	"github.com/nats-io/nats-server/v2/server"
@@ -30,12 +27,20 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/RynoXLI/Wayfile/internal/auth"
+	"github.com/RynoXLI/Wayfile/internal/config"
+	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
+	"github.com/RynoXLI/Wayfile/internal/events"
+	"github.com/RynoXLI/Wayfile/internal/middleware"
+	"github.com/RynoXLI/Wayfile/internal/services"
+	"github.com/RynoXLI/Wayfile/internal/storage"
 )
 
 // testApp holds all the test dependencies
 type testApp struct {
 	app         *App
-	router      chi.Router
+	router      http.Handler
 	pool        *pgxpool.Pool
 	nc          *nats.Conn
 	tmpDir      string
@@ -141,14 +146,40 @@ func setupTestApp(t *testing.T) *testApp {
 			RateLimitRPS:   1000,
 			RateLimitBurst: 2000,
 			MaxUploadSize:  104857600, // 100 MB
+			BaseURL:        baseURL,
 		},
 	}
 
-	r := ChiRouter(app, testCfg)
+	// Setup router with Huma
+	router := chi.NewRouter()
+	router.Use(chimiddleware.RequestID)
+	router.Use(chimiddleware.Logger)
+	router.Use(chimiddleware.Recoverer)
+	router.Use(middleware.RateLimiter(testCfg.Server.RateLimitRPS, testCfg.Server.RateLimitBurst))
+
+	// Apply max upload size to POST routes only
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				r.Body = http.MaxBytesReader(w, r.Body, testCfg.Server.MaxUploadSize)
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Create Huma API
+	humaConfig := huma.DefaultConfig("Wayfile Document API", "0.1.0")
+	humaConfig.Servers = []*huma.Server{
+		{URL: baseURL},
+	}
+	api := humachi.New(router, humaConfig)
+
+	// Register all routes
+	RegisterRoutes(api, app)
 
 	return &testApp{
 		app:         app,
-		router:      r,
+		router:      router,
 		pool:        pool,
 		nc:          nc,
 		tmpDir:      tmpDir,
@@ -182,13 +213,19 @@ func TestHealthEndpoint(t *testing.T) {
 	ta := setupTestApp(t)
 	defer ta.cleanup(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
 	ta.router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, "OK", w.Body.String())
+
+	var response struct {
+		Status string `json:"status"`
+	}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, "ok", response.Status)
 }
 
 // TestUploadDocument tests uploading a document
@@ -224,7 +261,9 @@ func TestUploadDocument(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusCreated, w.Code)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Upload failed with status %d: %s", w.Code, w.Body.String())
+	}
 
 	var uploadResponse DocumentResponse
 	err = json.NewDecoder(w.Body).Decode(&uploadResponse)
@@ -485,7 +524,7 @@ func TestInvalidDocumentID(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code, "Invalid UUID should return 404")
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code, "Invalid UUID should return 422")
 
 	// Try to delete with invalid UUID
 	req = httptest.NewRequest(
@@ -497,7 +536,7 @@ func TestInvalidDocumentID(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code, "Invalid UUID should return 404")
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code, "Invalid UUID should return 422")
 }
 
 // TestNamespaceIsolation tests that documents cannot be accessed across namespaces
@@ -604,7 +643,7 @@ func TestUploadErrors(t *testing.T) {
 
 	ta.router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusBadRequest, w.Code, "Missing file should return 400")
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code, "Missing file should return 422")
 
 	// Test upload to non-existent namespace
 	fileContent := []byte("Test content")
