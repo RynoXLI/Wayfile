@@ -12,21 +12,163 @@ import (
 )
 
 const createTag = `-- name: CreateTag :one
-INSERT INTO tags (
-    namespace_id,
-    name,
-    description,
-    path,
-    parent_id,
-    color
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
+INSERT INTO tags (namespace_id, name, description, path, parent_id, color)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
 `
 
 func (q *Queries) CreateTag(ctx context.Context, namespaceID pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error) {
 	row := q.db.QueryRow(ctx, createTag,
 		namespaceID,
+		name,
+		description,
+		path,
+		parentID,
+		color,
+	)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
+const deleteTag = `-- name: DeleteTag :exec
+DELETE FROM tags WHERE id = $1
+`
+
+func (q *Queries) DeleteTag(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTag, id)
+	return err
+}
+
+const getOrCreateTag = `-- name: GetOrCreateTag :one
+INSERT INTO tags (namespace_id, name, path)
+SELECT n.id, $2, '/' || $2
+FROM namespaces n
+WHERE n.name = $1
+ON CONFLICT (namespace_id, name) 
+DO UPDATE SET name = tags.name
+RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
+`
+
+func (q *Queries) GetOrCreateTag(ctx context.Context, name string, name_2 string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getOrCreateTag, name, name_2)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
+const getTagByID = `-- name: GetTagByID :one
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE id = $1
+`
+
+func (q *Queries) GetTagByID(ctx context.Context, id pgtype.UUID) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTagByID, id)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
+const getTagByName = `-- name: GetTagByName :one
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 AND name = $2
+`
+
+func (q *Queries) GetTagByName(ctx context.Context, namespaceID pgtype.UUID, name string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTagByName, namespaceID, name)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
+const getTagsByNamespace = `-- name: GetTagsByNamespace :many
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 ORDER BY path
+`
+
+func (q *Queries) GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error) {
+	rows, err := q.db.Query(ctx, getTagsByNamespace, namespaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tag{}
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.NamespaceID,
+			&i.Name,
+			&i.Description,
+			&i.Path,
+			&i.ParentID,
+			&i.Color,
+			&i.CreatedAt,
+			&i.ModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateTag = `-- name: UpdateTag :one
+UPDATE tags
+SET 
+    name = COALESCE($2, name),
+    description = COALESCE($3, description),
+    path = COALESCE($4, path),
+    parent_id = COALESCE($5, parent_id),
+    color = COALESCE($6, color),
+    modified_at = NOW()
+WHERE id = $1
+RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
+`
+
+func (q *Queries) UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error) {
+	row := q.db.QueryRow(ctx, updateTag,
+		iD,
 		name,
 		description,
 		path,

@@ -37,6 +37,30 @@ func (q *Queries) CreateSchema(ctx context.Context, tagID pgtype.UUID, jsonSchem
 	return i, err
 }
 
+const getLatestSchemaByTagID = `-- name: GetLatestSchemaByTagID :one
+SELECT 
+    tag_id, 
+    version,
+    json_schema,
+    created_at
+FROM attribute_schemas
+WHERE tag_id = $1
+ORDER BY version DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestSchemaByTagID(ctx context.Context, tagID pgtype.UUID) (AttributeSchema, error) {
+	row := q.db.QueryRow(ctx, getLatestSchemaByTagID, tagID)
+	var i AttributeSchema
+	err := row.Scan(
+		&i.TagID,
+		&i.Version,
+		&i.JsonSchema,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSchemas = `-- name: GetSchemas :many
 WITH LATEST AS (
     SELECT tag_id, max(version) as latest_version 

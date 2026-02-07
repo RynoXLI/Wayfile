@@ -69,7 +69,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getDocumentByID = `-- name: GetDocumentByID :one
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents WHERE id = $1
+SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at FROM documents WHERE id = $1
 `
 
 func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error) {
@@ -87,6 +87,7 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document
 		&i.PageCount,
 		&i.Attributes,
 		&i.AttributesVersion,
+		&i.AttributesMetadata,
 		&i.CreatedAt,
 		&i.ModifiedAt,
 	)
@@ -94,7 +95,7 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document
 }
 
 const getDocumentsByChecksum = `-- name: GetDocumentsByChecksum :many
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents
+SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at FROM documents
 WHERE checksum_sha256 = $1
 ORDER BY created_at DESC
 `
@@ -120,6 +121,7 @@ func (q *Queries) GetDocumentsByChecksum(ctx context.Context, checksumSha256 str
 			&i.PageCount,
 			&i.Attributes,
 			&i.AttributesVersion,
+			&i.AttributesMetadata,
 			&i.CreatedAt,
 			&i.ModifiedAt,
 		); err != nil {
@@ -134,7 +136,7 @@ func (q *Queries) GetDocumentsByChecksum(ctx context.Context, checksumSha256 str
 }
 
 const getDocumentsByNamespace = `-- name: GetDocumentsByNamespace :many
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents 
+SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at FROM documents 
 WHERE namespace_id = $1 
 ORDER BY created_at DESC 
 LIMIT $2 OFFSET $3
@@ -161,6 +163,7 @@ func (q *Queries) GetDocumentsByNamespace(ctx context.Context, namespaceID pgtyp
 			&i.PageCount,
 			&i.Attributes,
 			&i.AttributesVersion,
+			&i.AttributesMetadata,
 			&i.CreatedAt,
 			&i.ModifiedAt,
 		); err != nil {
@@ -184,7 +187,7 @@ UPDATE documents SET
     attributes = COALESCE($7, attributes),
     modified_at = NOW()
 WHERE id = $1
-RETURNING id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at
+RETURNING id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at
 `
 
 func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error) {
@@ -210,6 +213,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName s
 		&i.PageCount,
 		&i.Attributes,
 		&i.AttributesVersion,
+		&i.AttributesMetadata,
 		&i.CreatedAt,
 		&i.ModifiedAt,
 	)

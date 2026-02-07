@@ -65,14 +65,14 @@ func RegisterRoutes(api huma.API, app *App) {
 		defer cancel()
 
 		// Check database
-		if err := app.pool.Ping(healthCtx); err != nil {
-			app.logger.Error("Health check failed: database", "error", err)
+		if err := app.Pool.Ping(healthCtx); err != nil {
+			app.Logger.Error("Health check failed: database", "error", err)
 			return nil, huma.Error503ServiceUnavailable("Database unavailable")
 		}
 
 		// Check NATS
-		if !app.nc.IsConnected() {
-			app.logger.Error("Health check failed: NATS disconnected")
+		if !app.NC.IsConnected() {
+			app.Logger.Error("Health check failed: NATS disconnected")
 			return nil, huma.Error503ServiceUnavailable("Message queue unavailable")
 		}
 
@@ -100,7 +100,7 @@ func RegisterRoutes(api huma.API, app *App) {
 		contentType := formData.File.ContentType
 
 		// Upload the file using the document service
-		result, err := app.documentService.UploadDocument(
+		result, err := app.DocumentService.UploadDocument(
 			ctx,
 			input.Namespace,
 			filename,
@@ -115,7 +115,7 @@ func RegisterRoutes(api huma.API, app *App) {
 			if errors.Is(err, storage.ErrNotFound) {
 				return nil, huma.Error404NotFound("Namespace not found")
 			}
-			app.logger.Error(
+			app.Logger.Error(
 				"Failed to upload file",
 				"error", err,
 				"namespace", input.Namespace,
@@ -153,7 +153,7 @@ func RegisterRoutes(api huma.API, app *App) {
 		}
 
 		// Download the file
-		file, doc, err := app.documentService.DownloadDocument(
+		file, doc, err := app.DocumentService.DownloadDocument(
 			ctx,
 			input.Namespace,
 			input.DocumentID,
@@ -162,13 +162,13 @@ func RegisterRoutes(api huma.API, app *App) {
 			if errors.Is(err, storage.ErrNotFound) {
 				return nil, huma.Error404NotFound("File not found")
 			}
-			app.logger.Error("Failed to download file", "error", err)
+			app.Logger.Error("Failed to download file", "error", err)
 			return nil, huma.Error500InternalServerError("Error downloading the file")
 		}
 
 		// Verify token if provided
 		if input.Token != "" {
-			tokenNsUUID, tokenDocID, err := app.signer.VerifyToken(input.Token)
+			tokenNsUUID, tokenDocID, err := app.Signer.VerifyToken(input.Token)
 			if err != nil {
 				_ = file.Close()
 				if errors.Is(err, auth.ErrTokenExpired) {
@@ -194,7 +194,7 @@ func RegisterRoutes(api huma.API, app *App) {
 				)
 				ctx.SetHeader("Content-Type", doc.MimeType)
 				if _, err := io.Copy(ctx.BodyWriter(), file); err != nil {
-					app.logger.Error("Failed to stream file", "error", err)
+					app.Logger.Error("Failed to stream file", "error", err)
 				}
 			},
 		}, nil

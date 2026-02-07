@@ -1,3 +1,14 @@
+-- name: GetLatestSchemaByTagID :one
+SELECT 
+    tag_id, 
+    version,
+    json_schema,
+    created_at
+FROM attribute_schemas
+WHERE tag_id = $1
+ORDER BY version DESC
+LIMIT 1;
+
 -- name: GetSchemas :many
 WITH LATEST AS (
     SELECT tag_id, max(version) as latest_version 

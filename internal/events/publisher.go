@@ -11,6 +11,7 @@ import (
 // Publisher defines the interface for publishing events
 type Publisher interface {
 	DocumentUploaded(event *eventsv1.DocumentUploadedEvent) error
+	TagSchemaChanged(event *eventsv1.TagSchemaChangedEvent) error
 }
 
 // JetStreamPublisher implements Publisher interface using NATS JetStream
@@ -35,4 +36,9 @@ func (p *JetStreamPublisher) publish(subject string, event proto.Message) error 
 // DocumentUploaded publishes a "document.uploaded" event to NATS JetStream
 func (p *JetStreamPublisher) DocumentUploaded(event *eventsv1.DocumentUploadedEvent) error {
 	return p.publish(DocumentUploaded, event)
+}
+
+// TagSchemaChanged publishes a "tags.schema.changed" event to NATS JetStream
+func (p *JetStreamPublisher) TagSchemaChanged(event *eventsv1.TagSchemaChangedEvent) error {
+	return p.publish(TagSchemaChanged, event)
 }

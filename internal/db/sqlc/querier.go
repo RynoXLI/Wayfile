@@ -12,19 +12,32 @@ import (
 )
 
 type Querier interface {
+	AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
 	CreateDocument(ctx context.Context, iD pgtype.UUID, namespaceID pgtype.UUID, fileName string, title string, mimeType string, checksumSha256 string, fileSize int64) (CreateDocumentRow, error)
 	CreateNamespace(ctx context.Context, name string) (Namespace, error)
 	CreateSchema(ctx context.Context, tagID pgtype.UUID, jsonSchema json.RawMessage) (AttributeSchema, error)
 	CreateTag(ctx context.Context, namespaceID pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 	DeleteDocument(ctx context.Context, id pgtype.UUID) error
 	DeleteNamespace(ctx context.Context, name string) error
+	DeleteTag(ctx context.Context, id pgtype.UUID) error
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
+	//--------- Tag-specific attributes -----------
+	GetDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) (GetDocumentTagAttributesRow, error)
+	GetDocumentTags(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsRow, error)
 	GetDocumentsByChecksum(ctx context.Context, checksumSha256 string) ([]Document, error)
 	GetDocumentsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Document, error)
+	GetLatestSchemaByTagID(ctx context.Context, tagID pgtype.UUID) (AttributeSchema, error)
 	GetNamespaceByName(ctx context.Context, name string) (Namespace, error)
 	GetNamespaces(ctx context.Context) ([]Namespace, error)
+	GetOrCreateTag(ctx context.Context, name string, name_2 string) (Tag, error)
 	GetSchemas(ctx context.Context) ([]AttributeSchema, error)
+	GetTagByID(ctx context.Context, id pgtype.UUID) (Tag, error)
+	GetTagByName(ctx context.Context, namespaceID pgtype.UUID, name string) (Tag, error)
+	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error)
+	RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
 	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error)
+	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error
+	UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 }
 
 var _ Querier = (*Queries)(nil)

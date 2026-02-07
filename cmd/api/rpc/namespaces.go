@@ -9,18 +9,18 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	namespacesv1 "github.com/RynoXLI/Wayfile/gen/go/namespaces/v1"
-	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
+	"github.com/RynoXLI/Wayfile/internal/services"
 )
 
 // NamespaceServiceServer implements the Connect RPC NamespaceService
 type NamespaceServiceServer struct {
-	queries *sqlc.Queries
+	service *services.NamespaceService
 }
 
 // NewNamespaceServiceServer creates a new Connect RPC service for namespaces
-func NewNamespaceServiceServer(queries *sqlc.Queries) *NamespaceServiceServer {
+func NewNamespaceServiceServer(service *services.NamespaceService) *NamespaceServiceServer {
 	return &NamespaceServiceServer{
-		queries: queries,
+		service: service,
 	}
 }
 
@@ -38,7 +38,7 @@ func (s *NamespaceServiceServer) CreateNamespace(
 	}
 
 	// Create the namespace
-	namespace, err := s.queries.CreateNamespace(ctx, req.Name)
+	namespace, err := s.service.CreateNamespace(ctx, req.Name)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -53,13 +53,13 @@ func (s *NamespaceServiceServer) CreateNamespace(
 	}, nil
 }
 
-// GetNamespaces retrieves all namespaces via Connect RPC
-func (s *NamespaceServiceServer) GetNamespaces(
+// ListNamespaces retrieves all namespaces via Connect RPC
+func (s *NamespaceServiceServer) ListNamespaces(
 	ctx context.Context,
-	_ *namespacesv1.GetNamespacesRequest,
-) (*namespacesv1.GetNamespacesResponse, error) {
+	_ *namespacesv1.ListNamespacesRequest,
+) (*namespacesv1.ListNamespacesResponse, error) {
 	// Get all namespaces
-	namespaces, err := s.queries.GetNamespaces(ctx)
+	namespaces, err := s.service.ListNamespaces(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -75,7 +75,7 @@ func (s *NamespaceServiceServer) GetNamespaces(
 		}
 	}
 
-	return &namespacesv1.GetNamespacesResponse{
+	return &namespacesv1.ListNamespacesResponse{
 		Namespaces: pbNamespaces,
 	}, nil
 }
@@ -94,7 +94,7 @@ func (s *NamespaceServiceServer) GetNamespace(
 	}
 
 	// Get the namespace
-	namespace, err := s.queries.GetNamespaceByName(ctx, req.Name)
+	namespace, err := s.service.GetNamespace(ctx, req.Name)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
@@ -123,7 +123,7 @@ func (s *NamespaceServiceServer) DeleteNamespace(
 	}
 
 	// Delete the namespace
-	err := s.queries.DeleteNamespace(ctx, req.Name)
+	err := s.service.DeleteNamespace(ctx, req.Name)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

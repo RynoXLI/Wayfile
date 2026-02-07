@@ -18,28 +18,30 @@ type AttributeSchema struct {
 }
 
 type Document struct {
-	ID                pgtype.UUID        `json:"id"`
-	NamespaceID       pgtype.UUID        `json:"namespace_id"`
-	FileName          string             `json:"file_name"`
-	Title             string             `json:"title"`
-	DocumentDate      pgtype.Date        `json:"document_date"`
-	MimeType          string             `json:"mime_type"`
-	ChecksumSha256    string             `json:"checksum_sha256"`
-	FileSize          int64              `json:"file_size"`
-	PageCount         *int32             `json:"page_count"`
-	Attributes        []byte             `json:"attributes"`
-	AttributesVersion *int64             `json:"attributes_version"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	ModifiedAt        pgtype.Timestamptz `json:"modified_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	NamespaceID        pgtype.UUID        `json:"namespace_id"`
+	FileName           string             `json:"file_name"`
+	Title              string             `json:"title"`
+	DocumentDate       pgtype.Date        `json:"document_date"`
+	MimeType           string             `json:"mime_type"`
+	ChecksumSha256     string             `json:"checksum_sha256"`
+	FileSize           int64              `json:"file_size"`
+	PageCount          *int32             `json:"page_count"`
+	Attributes         []byte             `json:"attributes"`
+	AttributesVersion  *int64             `json:"attributes_version"`
+	AttributesMetadata []byte             `json:"attributes_metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ModifiedAt         pgtype.Timestamptz `json:"modified_at"`
 }
 
 type DocumentTag struct {
-	DocumentID        pgtype.UUID        `json:"document_id"`
-	TagID             pgtype.UUID        `json:"tag_id"`
-	Attributes        []byte             `json:"attributes"`
-	AttributesVersion *int64             `json:"attributes_version"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	ModifiedAt        pgtype.Timestamptz `json:"modified_at"`
+	DocumentID         pgtype.UUID        `json:"document_id"`
+	TagID              pgtype.UUID        `json:"tag_id"`
+	Attributes         []byte             `json:"attributes"`
+	AttributesVersion  *int64             `json:"attributes_version"`
+	AttributesMetadata []byte             `json:"attributes_metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ModifiedAt         pgtype.Timestamptz `json:"modified_at"`
 }
 
 type Namespace struct {

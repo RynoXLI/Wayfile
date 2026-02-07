@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package tags.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// TagService provides operations for managing tags.
+service TagService {
+  // CreateTag creates a new tag in a namespace.
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  // GetTag retrieves a specific tag by name within a namespace.
+  rpc GetTag(GetTagRequest) returns (GetTagResponse);
+  // ListTags retrieves all tags in a namespace.
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  // UpdateTag updates an existing tag.
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse);
+  // DeleteTag removes a tag.
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+}
+
+// Tag represents a label for organizing documents.
+message Tag {
+  // name is the human-readable name of the tag.
+  string name = 1;
+  // description provides additional context about the tag.
+  optional string description = 2;
+  // path is the hierarchical path of the tag (e.g., '/financial/reports/2023').
+  string path = 3;
+  // color is a hex color code for visual representation.
+  optional string color = 4;
+  // created_at is the timestamp when the tag was created.
+  google.protobuf.Timestamp created_at = 6;
+  // modified_at is the timestamp when the tag was last modified.
+  google.protobuf.Timestamp modified_at = 7;
+  // json_schema is the JSON Schema definition for tag-specific attributes.
+  optional string json_schema = 8;
+}
+
+// CreateTagRequest contains the data needed to create a tag.
+message CreateTagRequest {
+  // namespace is the name of the namespace for the tag.
+  string namespace = 1;
+  // name is the name for the new tag.
+  string name = 2;
+  // description provides additional context about the tag.
+  optional string description = 3;
+  // parent_name is the name of the parent tag (optional).
+  optional string parent_name = 4;
+  // color is a hex color code for visual representation.
+  optional string color = 5;
+  // json_schema is the JSON Schema definition for tag-specific attributes.
+  optional string json_schema = 7;
+}
+
+// CreateTagResponse contains the created tag.
+message CreateTagResponse {
+  // tag is the newly created tag.
+  Tag tag = 1;
+}
+
+// GetTagRequest contains the identifier for retrieving a tag.
+message GetTagRequest {
+  // namespace is the name of the namespace containing the tag.
+  string namespace = 1;
+  // name is the name of the tag to retrieve.
+  string name = 2;
+}
+
+// GetTagResponse contains the requested tag.
+message GetTagResponse {
+  // tag is the requested tag.
+  Tag tag = 1;
+}
+
+// ListTagsRequest contains the namespace identifier.
+message ListTagsRequest {
+  // namespace is the name of the namespace.
+  string namespace = 1;
+}
+
+// ListTagsResponse contains a list of tags in the namespace.
+message ListTagsResponse {
+  // tags is the list of tags in the namespace.
+  repeated Tag tags = 1;
+}
+
+// UpdateTagRequest contains the data needed to update a tag.
+message UpdateTagRequest {
+  // namespace is the name of the namespace containing the tag.
+  string namespace = 1;
+  // name is the name of the tag to update.
+  string name = 2;
+  // new_name is the new name for the tag (if renaming).
+  optional string new_name = 3;
+  // description is the new description for the tag.
+  optional string description = 4;
+  // parent_name is the new parent tag name (optional). Empty string moves to root.
+  optional string parent_name = 5;
+  // color is the new hex color code.
+  optional string color = 6;
+  // json_schema is the new JSON Schema definition for tag-specific attributes.
+  optional string json_schema = 8;
+}
+
+// UpdateTagResponse contains the updated tag.
+message UpdateTagResponse {
+  // tag is the updated tag.
+  Tag tag = 1;
+}
+
+// DeleteTagRequest contains the identifier for deleting a tag.
+message DeleteTagRequest {
+  // namespace is the name of the namespace containing the tag.
+  string namespace = 1;
+  // name is the name of the tag to delete.
+  string name = 2;
+}
+
+// DeleteTagResponse is returned when a tag is successfully deleted.
+message DeleteTagResponse {}

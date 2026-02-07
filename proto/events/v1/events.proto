@@ -13,3 +13,15 @@ message DocumentUploadedEvent {
   // mime_type is the MIME type of the uploaded file.
   string mime_type = 4;
 }
+
+// TagSchemaChangedEvent is published when a tag's attribute schema changes.
+message TagSchemaChangedEvent {
+  // namespace is the name of the namespace containing the tag.
+  string namespace = 1;
+  // tag is the name of the tag.
+  string tag = 2;
+  // old_json_schema is the previous JSON Schema definition (empty if first schema).
+  string old_json_schema = 3;
+  // new_json_schema is the new JSON Schema definition.
+  string new_json_schema = 4;
+}

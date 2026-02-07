@@ -94,6 +94,79 @@ func (x *DocumentUploadedEvent) GetMimeType() string {
 	return ""
 }
 
+// TagSchemaChangedEvent is published when a tag's attribute schema changes.
+type TagSchemaChangedEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// namespace is the name of the namespace containing the tag.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// tag is the name of the tag.
+	Tag string `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	// old_json_schema is the previous JSON Schema definition (empty if first schema).
+	OldJsonSchema string `protobuf:"bytes,3,opt,name=old_json_schema,json=oldJsonSchema,proto3" json:"old_json_schema,omitempty"`
+	// new_json_schema is the new JSON Schema definition.
+	NewJsonSchema string `protobuf:"bytes,4,opt,name=new_json_schema,json=newJsonSchema,proto3" json:"new_json_schema,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TagSchemaChangedEvent) Reset() {
+	*x = TagSchemaChangedEvent{}
+	mi := &file_events_v1_events_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TagSchemaChangedEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TagSchemaChangedEvent) ProtoMessage() {}
+
+func (x *TagSchemaChangedEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_events_v1_events_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TagSchemaChangedEvent.ProtoReflect.Descriptor instead.
+func (*TagSchemaChangedEvent) Descriptor() ([]byte, []int) {
+	return file_events_v1_events_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TagSchemaChangedEvent) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *TagSchemaChangedEvent) GetTag() string {
+	if x != nil {
+		return x.Tag
+	}
+	return ""
+}
+
+func (x *TagSchemaChangedEvent) GetOldJsonSchema() string {
+	if x != nil {
+		return x.OldJsonSchema
+	}
+	return ""
+}
+
+func (x *TagSchemaChangedEvent) GetNewJsonSchema() string {
+	if x != nil {
+		return x.NewJsonSchema
+	}
+	return ""
+}
+
 var File_events_v1_events_proto protoreflect.FileDescriptor
 
 const file_events_v1_events_proto_rawDesc = "" +
@@ -104,7 +177,12 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"documentId\x12!\n" +
 	"\fnamespace_id\x18\x02 \x01(\tR\vnamespaceId\x12\x1a\n" +
 	"\bfilename\x18\x03 \x01(\tR\bfilename\x12\x1b\n" +
-	"\tmime_type\x18\x04 \x01(\tR\bmimeTypeB\x97\x01\n" +
+	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"\x97\x01\n" +
+	"\x15TagSchemaChangedEvent\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x10\n" +
+	"\x03tag\x18\x02 \x01(\tR\x03tag\x12&\n" +
+	"\x0fold_json_schema\x18\x03 \x01(\tR\roldJsonSchema\x12&\n" +
+	"\x0fnew_json_schema\x18\x04 \x01(\tR\rnewJsonSchemaB\x97\x01\n" +
 	"\rcom.events.v1B\vEventsProtoP\x01Z4github.com/RynoXLI/Wayfile/gen/go/events/v1;eventsv1\xa2\x02\x03EXX\xaa\x02\tEvents.V1\xca\x02\tEvents\\V1\xe2\x02\x15Events\\V1\\GPBMetadata\xea\x02\n" +
 	"Events::V1b\x06proto3"
 
@@ -120,9 +198,10 @@ func file_events_v1_events_proto_rawDescGZIP() []byte {
 	return file_events_v1_events_proto_rawDescData
 }
 
-var file_events_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_events_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_events_v1_events_proto_goTypes = []any{
 	(*DocumentUploadedEvent)(nil), // 0: events.v1.DocumentUploadedEvent
+	(*TagSchemaChangedEvent)(nil), // 1: events.v1.TagSchemaChangedEvent
 }
 var file_events_v1_events_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -143,7 +222,7 @@ func file_events_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_events_v1_events_proto_rawDesc), len(file_events_v1_events_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

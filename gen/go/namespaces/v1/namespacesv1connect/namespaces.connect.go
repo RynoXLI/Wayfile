@@ -36,9 +36,9 @@ const (
 	// NamespaceServiceCreateNamespaceProcedure is the fully-qualified name of the NamespaceService's
 	// CreateNamespace RPC.
 	NamespaceServiceCreateNamespaceProcedure = "/namespaces.v1.NamespaceService/CreateNamespace"
-	// NamespaceServiceGetNamespacesProcedure is the fully-qualified name of the NamespaceService's
-	// GetNamespaces RPC.
-	NamespaceServiceGetNamespacesProcedure = "/namespaces.v1.NamespaceService/GetNamespaces"
+	// NamespaceServiceListNamespacesProcedure is the fully-qualified name of the NamespaceService's
+	// ListNamespaces RPC.
+	NamespaceServiceListNamespacesProcedure = "/namespaces.v1.NamespaceService/ListNamespaces"
 	// NamespaceServiceGetNamespaceProcedure is the fully-qualified name of the NamespaceService's
 	// GetNamespace RPC.
 	NamespaceServiceGetNamespaceProcedure = "/namespaces.v1.NamespaceService/GetNamespace"
@@ -51,8 +51,8 @@ const (
 type NamespaceServiceClient interface {
 	// CreateNamespace creates a new namespace.
 	CreateNamespace(context.Context, *v1.CreateNamespaceRequest) (*v1.CreateNamespaceResponse, error)
-	// GetNamespaces retrieves all namespaces.
-	GetNamespaces(context.Context, *v1.GetNamespacesRequest) (*v1.GetNamespacesResponse, error)
+	// ListNamespaces retrieves all namespaces.
+	ListNamespaces(context.Context, *v1.ListNamespacesRequest) (*v1.ListNamespacesResponse, error)
 	// GetNamespace retrieves a specific namespace by name.
 	GetNamespace(context.Context, *v1.GetNamespaceRequest) (*v1.GetNamespaceResponse, error)
 	// DeleteNamespace removes a namespace.
@@ -76,10 +76,10 @@ func NewNamespaceServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
 			connect.WithClientOptions(opts...),
 		),
-		getNamespaces: connect.NewClient[v1.GetNamespacesRequest, v1.GetNamespacesResponse](
+		listNamespaces: connect.NewClient[v1.ListNamespacesRequest, v1.ListNamespacesResponse](
 			httpClient,
-			baseURL+NamespaceServiceGetNamespacesProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("GetNamespaces")),
+			baseURL+NamespaceServiceListNamespacesProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
 			connect.WithClientOptions(opts...),
 		),
 		getNamespace: connect.NewClient[v1.GetNamespaceRequest, v1.GetNamespaceResponse](
@@ -100,7 +100,7 @@ func NewNamespaceServiceClient(httpClient connect.HTTPClient, baseURL string, op
 // namespaceServiceClient implements NamespaceServiceClient.
 type namespaceServiceClient struct {
 	createNamespace *connect.Client[v1.CreateNamespaceRequest, v1.CreateNamespaceResponse]
-	getNamespaces   *connect.Client[v1.GetNamespacesRequest, v1.GetNamespacesResponse]
+	listNamespaces  *connect.Client[v1.ListNamespacesRequest, v1.ListNamespacesResponse]
 	getNamespace    *connect.Client[v1.GetNamespaceRequest, v1.GetNamespaceResponse]
 	deleteNamespace *connect.Client[v1.DeleteNamespaceRequest, v1.DeleteNamespaceResponse]
 }
@@ -114,9 +114,9 @@ func (c *namespaceServiceClient) CreateNamespace(ctx context.Context, req *v1.Cr
 	return nil, err
 }
 
-// GetNamespaces calls namespaces.v1.NamespaceService.GetNamespaces.
-func (c *namespaceServiceClient) GetNamespaces(ctx context.Context, req *v1.GetNamespacesRequest) (*v1.GetNamespacesResponse, error) {
-	response, err := c.getNamespaces.CallUnary(ctx, connect.NewRequest(req))
+// ListNamespaces calls namespaces.v1.NamespaceService.ListNamespaces.
+func (c *namespaceServiceClient) ListNamespaces(ctx context.Context, req *v1.ListNamespacesRequest) (*v1.ListNamespacesResponse, error) {
+	response, err := c.listNamespaces.CallUnary(ctx, connect.NewRequest(req))
 	if response != nil {
 		return response.Msg, err
 	}
@@ -145,8 +145,8 @@ func (c *namespaceServiceClient) DeleteNamespace(ctx context.Context, req *v1.De
 type NamespaceServiceHandler interface {
 	// CreateNamespace creates a new namespace.
 	CreateNamespace(context.Context, *v1.CreateNamespaceRequest) (*v1.CreateNamespaceResponse, error)
-	// GetNamespaces retrieves all namespaces.
-	GetNamespaces(context.Context, *v1.GetNamespacesRequest) (*v1.GetNamespacesResponse, error)
+	// ListNamespaces retrieves all namespaces.
+	ListNamespaces(context.Context, *v1.ListNamespacesRequest) (*v1.ListNamespacesResponse, error)
 	// GetNamespace retrieves a specific namespace by name.
 	GetNamespace(context.Context, *v1.GetNamespaceRequest) (*v1.GetNamespaceResponse, error)
 	// DeleteNamespace removes a namespace.
@@ -166,10 +166,10 @@ func NewNamespaceServiceHandler(svc NamespaceServiceHandler, opts ...connect.Han
 		connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
 		connect.WithHandlerOptions(opts...),
 	)
-	namespaceServiceGetNamespacesHandler := connect.NewUnaryHandlerSimple(
-		NamespaceServiceGetNamespacesProcedure,
-		svc.GetNamespaces,
-		connect.WithSchema(namespaceServiceMethods.ByName("GetNamespaces")),
+	namespaceServiceListNamespacesHandler := connect.NewUnaryHandlerSimple(
+		NamespaceServiceListNamespacesProcedure,
+		svc.ListNamespaces,
+		connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
 		connect.WithHandlerOptions(opts...),
 	)
 	namespaceServiceGetNamespaceHandler := connect.NewUnaryHandlerSimple(
@@ -188,8 +188,8 @@ func NewNamespaceServiceHandler(svc NamespaceServiceHandler, opts ...connect.Han
 		switch r.URL.Path {
 		case NamespaceServiceCreateNamespaceProcedure:
 			namespaceServiceCreateNamespaceHandler.ServeHTTP(w, r)
-		case NamespaceServiceGetNamespacesProcedure:
-			namespaceServiceGetNamespacesHandler.ServeHTTP(w, r)
+		case NamespaceServiceListNamespacesProcedure:
+			namespaceServiceListNamespacesHandler.ServeHTTP(w, r)
 		case NamespaceServiceGetNamespaceProcedure:
 			namespaceServiceGetNamespaceHandler.ServeHTTP(w, r)
 		case NamespaceServiceDeleteNamespaceProcedure:
@@ -207,8 +207,8 @@ func (UnimplementedNamespaceServiceHandler) CreateNamespace(context.Context, *v1
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("namespaces.v1.NamespaceService.CreateNamespace is not implemented"))
 }
 
-func (UnimplementedNamespaceServiceHandler) GetNamespaces(context.Context, *v1.GetNamespacesRequest) (*v1.GetNamespacesResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("namespaces.v1.NamespaceService.GetNamespaces is not implemented"))
+func (UnimplementedNamespaceServiceHandler) ListNamespaces(context.Context, *v1.ListNamespacesRequest) (*v1.ListNamespacesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("namespaces.v1.NamespaceService.ListNamespaces is not implemented"))
 }
 
 func (UnimplementedNamespaceServiceHandler) GetNamespace(context.Context, *v1.GetNamespaceRequest) (*v1.GetNamespaceResponse, error) {

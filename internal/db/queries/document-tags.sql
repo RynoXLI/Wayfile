@@ -16,7 +16,6 @@ WHERE dt.document_id = $1;
 ----------- Tag-specific attributes -----------
 
 -- name: GetDocumentTagAttributes :one
-name: GetDocumentTagAttributes :one
 SELECT attributes, attributes_version
 FROM document_tags
 WHERE document_id = $1 AND tag_id = $2;

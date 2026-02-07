@@ -8,8 +8,8 @@ import "google/protobuf/timestamp.proto";
 service NamespaceService {
   // CreateNamespace creates a new namespace.
   rpc CreateNamespace(CreateNamespaceRequest) returns (CreateNamespaceResponse);
-  // GetNamespaces retrieves all namespaces.
-  rpc GetNamespaces(GetNamespacesRequest) returns (GetNamespacesResponse);
+  // ListNamespaces retrieves all namespaces.
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
   // GetNamespace retrieves a specific namespace by name.
   rpc GetNamespace(GetNamespaceRequest) returns (GetNamespaceResponse);
   // DeleteNamespace removes a namespace.
@@ -40,11 +40,11 @@ message CreateNamespaceResponse {
   Namespace namespace = 1;
 }
 
-// GetNamespacesRequest is used to retrieve all namespaces.
-message GetNamespacesRequest {}
+// ListNamespacesRequest is used to retrieve all namespaces.
+message ListNamespacesRequest {}
 
-// GetNamespacesResponse contains a list of namespaces.
-message GetNamespacesResponse {
+// ListNamespacesResponse contains a list of namespaces.
+message ListNamespacesResponse {
   // namespaces is the list of all namespaces.
   repeated Namespace namespaces = 1;
 }

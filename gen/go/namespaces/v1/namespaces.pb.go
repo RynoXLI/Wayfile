@@ -187,27 +187,27 @@ func (x *CreateNamespaceResponse) GetNamespace() *Namespace {
 	return nil
 }
 
-// GetNamespacesRequest is used to retrieve all namespaces.
-type GetNamespacesRequest struct {
+// ListNamespacesRequest is used to retrieve all namespaces.
+type ListNamespacesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetNamespacesRequest) Reset() {
-	*x = GetNamespacesRequest{}
+func (x *ListNamespacesRequest) Reset() {
+	*x = ListNamespacesRequest{}
 	mi := &file_namespaces_v1_namespaces_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetNamespacesRequest) String() string {
+func (x *ListNamespacesRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetNamespacesRequest) ProtoMessage() {}
+func (*ListNamespacesRequest) ProtoMessage() {}
 
-func (x *GetNamespacesRequest) ProtoReflect() protoreflect.Message {
+func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_namespaces_v1_namespaces_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -219,13 +219,13 @@ func (x *GetNamespacesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetNamespacesRequest.ProtoReflect.Descriptor instead.
-func (*GetNamespacesRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
+func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
 	return file_namespaces_v1_namespaces_proto_rawDescGZIP(), []int{3}
 }
 
-// GetNamespacesResponse contains a list of namespaces.
-type GetNamespacesResponse struct {
+// ListNamespacesResponse contains a list of namespaces.
+type ListNamespacesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// namespaces is the list of all namespaces.
 	Namespaces    []*Namespace `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
@@ -233,20 +233,20 @@ type GetNamespacesResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetNamespacesResponse) Reset() {
-	*x = GetNamespacesResponse{}
+func (x *ListNamespacesResponse) Reset() {
+	*x = ListNamespacesResponse{}
 	mi := &file_namespaces_v1_namespaces_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetNamespacesResponse) String() string {
+func (x *ListNamespacesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetNamespacesResponse) ProtoMessage() {}
+func (*ListNamespacesResponse) ProtoMessage() {}
 
-func (x *GetNamespacesResponse) ProtoReflect() protoreflect.Message {
+func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_namespaces_v1_namespaces_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -258,12 +258,12 @@ func (x *GetNamespacesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetNamespacesResponse.ProtoReflect.Descriptor instead.
-func (*GetNamespacesResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
+func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
 	return file_namespaces_v1_namespaces_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *GetNamespacesResponse) GetNamespaces() []*Namespace {
+func (x *ListNamespacesResponse) GetNamespaces() []*Namespace {
 	if x != nil {
 		return x.Namespaces
 	}
@@ -460,9 +460,9 @@ const file_namespaces_v1_namespaces_proto_rawDesc = "" +
 	"\x16CreateNamespaceRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"Q\n" +
 	"\x17CreateNamespaceResponse\x126\n" +
-	"\tnamespace\x18\x01 \x01(\v2\x18.namespaces.v1.NamespaceR\tnamespace\"\x16\n" +
-	"\x14GetNamespacesRequest\"Q\n" +
-	"\x15GetNamespacesResponse\x128\n" +
+	"\tnamespace\x18\x01 \x01(\v2\x18.namespaces.v1.NamespaceR\tnamespace\"\x17\n" +
+	"\x15ListNamespacesRequest\"R\n" +
+	"\x16ListNamespacesResponse\x128\n" +
 	"\n" +
 	"namespaces\x18\x01 \x03(\v2\x18.namespaces.v1.NamespaceR\n" +
 	"namespaces\")\n" +
@@ -472,10 +472,10 @@ const file_namespaces_v1_namespaces_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\v2\x18.namespaces.v1.NamespaceR\tnamespace\",\n" +
 	"\x16DeleteNamespaceRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x19\n" +
-	"\x17DeleteNamespaceResponse2\x8b\x03\n" +
+	"\x17DeleteNamespaceResponse2\x8e\x03\n" +
 	"\x10NamespaceService\x12`\n" +
-	"\x0fCreateNamespace\x12%.namespaces.v1.CreateNamespaceRequest\x1a&.namespaces.v1.CreateNamespaceResponse\x12Z\n" +
-	"\rGetNamespaces\x12#.namespaces.v1.GetNamespacesRequest\x1a$.namespaces.v1.GetNamespacesResponse\x12W\n" +
+	"\x0fCreateNamespace\x12%.namespaces.v1.CreateNamespaceRequest\x1a&.namespaces.v1.CreateNamespaceResponse\x12]\n" +
+	"\x0eListNamespaces\x12$.namespaces.v1.ListNamespacesRequest\x1a%.namespaces.v1.ListNamespacesResponse\x12W\n" +
 	"\fGetNamespace\x12\".namespaces.v1.GetNamespaceRequest\x1a#.namespaces.v1.GetNamespaceResponse\x12`\n" +
 	"\x0fDeleteNamespace\x12%.namespaces.v1.DeleteNamespaceRequest\x1a&.namespaces.v1.DeleteNamespaceResponseB\xb7\x01\n" +
 	"\x11com.namespaces.v1B\x0fNamespacesProtoP\x01Z<github.com/RynoXLI/Wayfile/gen/go/namespaces/v1;namespacesv1\xa2\x02\x03NXX\xaa\x02\rNamespaces.V1\xca\x02\rNamespaces\\V1\xe2\x02\x19Namespaces\\V1\\GPBMetadata\xea\x02\x0eNamespaces::V1b\x06proto3"
@@ -497,8 +497,8 @@ var file_namespaces_v1_namespaces_proto_goTypes = []any{
 	(*Namespace)(nil),               // 0: namespaces.v1.Namespace
 	(*CreateNamespaceRequest)(nil),  // 1: namespaces.v1.CreateNamespaceRequest
 	(*CreateNamespaceResponse)(nil), // 2: namespaces.v1.CreateNamespaceResponse
-	(*GetNamespacesRequest)(nil),    // 3: namespaces.v1.GetNamespacesRequest
-	(*GetNamespacesResponse)(nil),   // 4: namespaces.v1.GetNamespacesResponse
+	(*ListNamespacesRequest)(nil),   // 3: namespaces.v1.ListNamespacesRequest
+	(*ListNamespacesResponse)(nil),  // 4: namespaces.v1.ListNamespacesResponse
 	(*GetNamespaceRequest)(nil),     // 5: namespaces.v1.GetNamespaceRequest
 	(*GetNamespaceResponse)(nil),    // 6: namespaces.v1.GetNamespaceResponse
 	(*DeleteNamespaceRequest)(nil),  // 7: namespaces.v1.DeleteNamespaceRequest
@@ -509,14 +509,14 @@ var file_namespaces_v1_namespaces_proto_depIdxs = []int32{
 	9, // 0: namespaces.v1.Namespace.created_at:type_name -> google.protobuf.Timestamp
 	9, // 1: namespaces.v1.Namespace.modified_at:type_name -> google.protobuf.Timestamp
 	0, // 2: namespaces.v1.CreateNamespaceResponse.namespace:type_name -> namespaces.v1.Namespace
-	0, // 3: namespaces.v1.GetNamespacesResponse.namespaces:type_name -> namespaces.v1.Namespace
+	0, // 3: namespaces.v1.ListNamespacesResponse.namespaces:type_name -> namespaces.v1.Namespace
 	0, // 4: namespaces.v1.GetNamespaceResponse.namespace:type_name -> namespaces.v1.Namespace
 	1, // 5: namespaces.v1.NamespaceService.CreateNamespace:input_type -> namespaces.v1.CreateNamespaceRequest
-	3, // 6: namespaces.v1.NamespaceService.GetNamespaces:input_type -> namespaces.v1.GetNamespacesRequest
+	3, // 6: namespaces.v1.NamespaceService.ListNamespaces:input_type -> namespaces.v1.ListNamespacesRequest
 	5, // 7: namespaces.v1.NamespaceService.GetNamespace:input_type -> namespaces.v1.GetNamespaceRequest
 	7, // 8: namespaces.v1.NamespaceService.DeleteNamespace:input_type -> namespaces.v1.DeleteNamespaceRequest
 	2, // 9: namespaces.v1.NamespaceService.CreateNamespace:output_type -> namespaces.v1.CreateNamespaceResponse
-	4, // 10: namespaces.v1.NamespaceService.GetNamespaces:output_type -> namespaces.v1.GetNamespacesResponse
+	4, // 10: namespaces.v1.NamespaceService.ListNamespaces:output_type -> namespaces.v1.ListNamespacesResponse
 	6, // 11: namespaces.v1.NamespaceService.GetNamespace:output_type -> namespaces.v1.GetNamespaceResponse
 	8, // 12: namespaces.v1.NamespaceService.DeleteNamespace:output_type -> namespaces.v1.DeleteNamespaceResponse
 	9, // [9:13] is the sub-list for method output_type
