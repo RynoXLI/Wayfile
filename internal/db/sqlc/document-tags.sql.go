@@ -12,13 +12,13 @@ import (
 )
 
 const addDocumentTag = `-- name: AddDocumentTag :exec
-INSERT INTO document_tags (document_id, tag_id)
-VALUES ($1, $2)
+INSERT INTO document_tags (document_id, tag_id, attributes)
+VALUES ($1, $2, $3)
 ON CONFLICT (document_id, tag_id) DO NOTHING
 `
 
-func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, addDocumentTag, documentID, tagID)
+func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error {
+	_, err := q.db.Exec(ctx, addDocumentTag, documentID, tagID, attributes)
 	return err
 }
 

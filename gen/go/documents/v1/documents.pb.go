@@ -232,6 +232,218 @@ func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
 	return file_documents_v1_documents_proto_rawDescGZIP(), []int{3}
 }
 
+// AddTagToDocumentRequest contains the information needed to add a tag to a document.
+type AddTagToDocumentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// namespace is the name of the namespace containing the document and tag.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// document_id is the unique identifier of the document.
+	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// tag_path is the full path of the tag to associate (e.g., "backend/api").
+	TagPath string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3" json:"tag_path,omitempty"`
+	// attributes is an optional JSON object containing tag-specific attributes.
+	// Must conform to the tag's attribute schema if one exists.
+	Attributes    *string `protobuf:"bytes,4,opt,name=attributes,proto3,oneof" json:"attributes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddTagToDocumentRequest) Reset() {
+	*x = AddTagToDocumentRequest{}
+	mi := &file_documents_v1_documents_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddTagToDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddTagToDocumentRequest) ProtoMessage() {}
+
+func (x *AddTagToDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddTagToDocumentRequest.ProtoReflect.Descriptor instead.
+func (*AddTagToDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AddTagToDocumentRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *AddTagToDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *AddTagToDocumentRequest) GetTagPath() string {
+	if x != nil {
+		return x.TagPath
+	}
+	return ""
+}
+
+func (x *AddTagToDocumentRequest) GetAttributes() string {
+	if x != nil && x.Attributes != nil {
+		return *x.Attributes
+	}
+	return ""
+}
+
+// AddTagToDocumentResponse is returned when a tag is successfully added to a document.
+type AddTagToDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddTagToDocumentResponse) Reset() {
+	*x = AddTagToDocumentResponse{}
+	mi := &file_documents_v1_documents_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddTagToDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddTagToDocumentResponse) ProtoMessage() {}
+
+func (x *AddTagToDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddTagToDocumentResponse.ProtoReflect.Descriptor instead.
+func (*AddTagToDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{5}
+}
+
+// RemoveTagFromDocumentRequest contains the information needed to remove a tag from a document.
+type RemoveTagFromDocumentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// namespace is the name of the namespace containing the document.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// document_id is the unique identifier of the document.
+	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// tag_path is the full path of the tag to remove (e.g., "backend/api").
+	TagPath       string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3" json:"tag_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTagFromDocumentRequest) Reset() {
+	*x = RemoveTagFromDocumentRequest{}
+	mi := &file_documents_v1_documents_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTagFromDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTagFromDocumentRequest) ProtoMessage() {}
+
+func (x *RemoveTagFromDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTagFromDocumentRequest.ProtoReflect.Descriptor instead.
+func (*RemoveTagFromDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RemoveTagFromDocumentRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RemoveTagFromDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *RemoveTagFromDocumentRequest) GetTagPath() string {
+	if x != nil {
+		return x.TagPath
+	}
+	return ""
+}
+
+// RemoveTagFromDocumentResponse is returned when a tag is successfully removed from a document.
+type RemoveTagFromDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTagFromDocumentResponse) Reset() {
+	*x = RemoveTagFromDocumentResponse{}
+	mi := &file_documents_v1_documents_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTagFromDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTagFromDocumentResponse) ProtoMessage() {}
+
+func (x *RemoveTagFromDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTagFromDocumentResponse.ProtoReflect.Descriptor instead.
+func (*RemoveTagFromDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{7}
+}
+
 var File_documents_v1_documents_proto protoreflect.FileDescriptor
 
 const file_documents_v1_documents_proto_rawDesc = "" +
@@ -250,10 +462,28 @@ const file_documents_v1_documents_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
 	"documentId\"\x18\n" +
-	"\x16DeleteDocumentResponse2\xcb\x01\n" +
+	"\x16DeleteDocumentResponse\"\xa7\x01\n" +
+	"\x17AddTagToDocumentRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12\x19\n" +
+	"\btag_path\x18\x03 \x01(\tR\atagPath\x12#\n" +
+	"\n" +
+	"attributes\x18\x04 \x01(\tH\x00R\n" +
+	"attributes\x88\x01\x01B\r\n" +
+	"\v_attributes\"\x1a\n" +
+	"\x18AddTagToDocumentResponse\"x\n" +
+	"\x1cRemoveTagFromDocumentRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\x12\x19\n" +
+	"\btag_path\x18\x03 \x01(\tR\atagPath\"\x1f\n" +
+	"\x1dRemoveTagFromDocumentResponse2\xa0\x03\n" +
 	"\x0fDocumentService\x12[\n" +
 	"\x0eUpdateDocument\x12#.documents.v1.UpdateDocumentRequest\x1a$.documents.v1.UpdateDocumentResponse\x12[\n" +
-	"\x0eDeleteDocument\x12#.documents.v1.DeleteDocumentRequest\x1a$.documents.v1.DeleteDocumentResponseB\xaf\x01\n" +
+	"\x0eDeleteDocument\x12#.documents.v1.DeleteDocumentRequest\x1a$.documents.v1.DeleteDocumentResponse\x12a\n" +
+	"\x10AddTagToDocument\x12%.documents.v1.AddTagToDocumentRequest\x1a&.documents.v1.AddTagToDocumentResponse\x12p\n" +
+	"\x15RemoveTagFromDocument\x12*.documents.v1.RemoveTagFromDocumentRequest\x1a+.documents.v1.RemoveTagFromDocumentResponseB\xaf\x01\n" +
 	"\x10com.documents.v1B\x0eDocumentsProtoP\x01Z:github.com/RynoXLI/Wayfile/gen/go/documents/v1;documentsv1\xa2\x02\x03DXX\xaa\x02\fDocuments.V1\xca\x02\fDocuments\\V1\xe2\x02\x18Documents\\V1\\GPBMetadata\xea\x02\rDocuments::V1b\x06proto3"
 
 var (
@@ -268,20 +498,28 @@ func file_documents_v1_documents_proto_rawDescGZIP() []byte {
 	return file_documents_v1_documents_proto_rawDescData
 }
 
-var file_documents_v1_documents_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_documents_v1_documents_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_documents_v1_documents_proto_goTypes = []any{
-	(*UpdateDocumentRequest)(nil),  // 0: documents.v1.UpdateDocumentRequest
-	(*UpdateDocumentResponse)(nil), // 1: documents.v1.UpdateDocumentResponse
-	(*DeleteDocumentRequest)(nil),  // 2: documents.v1.DeleteDocumentRequest
-	(*DeleteDocumentResponse)(nil), // 3: documents.v1.DeleteDocumentResponse
+	(*UpdateDocumentRequest)(nil),         // 0: documents.v1.UpdateDocumentRequest
+	(*UpdateDocumentResponse)(nil),        // 1: documents.v1.UpdateDocumentResponse
+	(*DeleteDocumentRequest)(nil),         // 2: documents.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil),        // 3: documents.v1.DeleteDocumentResponse
+	(*AddTagToDocumentRequest)(nil),       // 4: documents.v1.AddTagToDocumentRequest
+	(*AddTagToDocumentResponse)(nil),      // 5: documents.v1.AddTagToDocumentResponse
+	(*RemoveTagFromDocumentRequest)(nil),  // 6: documents.v1.RemoveTagFromDocumentRequest
+	(*RemoveTagFromDocumentResponse)(nil), // 7: documents.v1.RemoveTagFromDocumentResponse
 }
 var file_documents_v1_documents_proto_depIdxs = []int32{
 	0, // 0: documents.v1.DocumentService.UpdateDocument:input_type -> documents.v1.UpdateDocumentRequest
 	2, // 1: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
-	1, // 2: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.UpdateDocumentResponse
-	3, // 3: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	4, // 2: documents.v1.DocumentService.AddTagToDocument:input_type -> documents.v1.AddTagToDocumentRequest
+	6, // 3: documents.v1.DocumentService.RemoveTagFromDocument:input_type -> documents.v1.RemoveTagFromDocumentRequest
+	1, // 4: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.UpdateDocumentResponse
+	3, // 5: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
+	5, // 6: documents.v1.DocumentService.AddTagToDocument:output_type -> documents.v1.AddTagToDocumentResponse
+	7, // 7: documents.v1.DocumentService.RemoveTagFromDocument:output_type -> documents.v1.RemoveTagFromDocumentResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -292,13 +530,14 @@ func file_documents_v1_documents_proto_init() {
 	if File_documents_v1_documents_proto != nil {
 		return
 	}
+	file_documents_v1_documents_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_documents_v1_documents_proto_rawDesc), len(file_documents_v1_documents_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

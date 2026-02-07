@@ -1,6 +1,6 @@
 -- name: AddDocumentTag :exec
-INSERT INTO document_tags (document_id, tag_id)
-VALUES ($1, $2)
+INSERT INTO document_tags (document_id, tag_id, attributes)
+VALUES ($1, $2, $3)
 ON CONFLICT (document_id, tag_id) DO NOTHING;
 
 -- name: RemoveDocumentTag :exec

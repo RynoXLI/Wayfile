@@ -8,6 +8,10 @@ service DocumentService {
   rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse);
   // DeleteDocument removes a document from a namespace.
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+  // AddTagToDocument associates a tag with a document.
+  rpc AddTagToDocument(AddTagToDocumentRequest) returns (AddTagToDocumentResponse);
+  // RemoveTagFromDocument removes a tag association from a document.
+  rpc RemoveTagFromDocument(RemoveTagFromDocumentRequest) returns (RemoveTagFromDocumentResponse);
 }
 
 // UpdateDocumentRequest contains the data needed to update a document.
@@ -38,3 +42,32 @@ message DeleteDocumentRequest {
 
 // DeleteDocumentResponse is returned when a document is successfully deleted.
 message DeleteDocumentResponse {}
+
+// AddTagToDocumentRequest contains the information needed to add a tag to a document.
+message AddTagToDocumentRequest {
+  // namespace is the name of the namespace containing the document and tag.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag to associate (e.g., "backend/api").
+  string tag_path = 3;
+  // attributes is an optional JSON object containing tag-specific attributes.
+  // Must conform to the tag's attribute schema if one exists.
+  optional string attributes = 4;
+}
+
+// AddTagToDocumentResponse is returned when a tag is successfully added to a document.
+message AddTagToDocumentResponse {}
+
+// RemoveTagFromDocumentRequest contains the information needed to remove a tag from a document.
+message RemoveTagFromDocumentRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag to remove (e.g., "backend/api").
+  string tag_path = 3;
+}
+
+// RemoveTagFromDocumentResponse is returned when a tag is successfully removed from a document.
+message RemoveTagFromDocumentResponse {}

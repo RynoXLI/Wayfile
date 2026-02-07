@@ -12,8 +12,9 @@ func TestValidateTagInput(t *testing.T) {
 	tests := []struct {
 		name       string
 		tagName    string
-		parentName *string
+		parentPath *string
 		color      *string
+		jsonSchema *string
 		wantErr    bool
 		errString  string
 	}{
@@ -24,16 +25,16 @@ func TestValidateTagInput(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:       "valid tag with parent name",
+			name:       "valid tag with parent path",
 			tagName:    "2024",
-			parentName: stringPtr("invoices"),
+			parentPath: stringPtr("/invoices"),
 			color:      nil,
 			wantErr:    false,
 		},
 		{
-			name:       "valid parent name with hyphen",
+			name:       "valid parent path with hyphen",
 			tagName:    "child",
-			parentName: stringPtr("my-parent"),
+			parentPath: stringPtr("/my-parent"),
 			color:      nil,
 			wantErr:    false,
 		},
@@ -86,20 +87,20 @@ func TestValidateTagInput(t *testing.T) {
 			errString: "name must contain only alphanumeric",
 		},
 		{
-			name:       "parent name with spaces",
+			name:       "parent path without leading slash",
 			tagName:    "test",
-			parentName: stringPtr("my parent"),
+			parentPath: stringPtr("my-parent"),
 			color:      nil,
 			wantErr:    true,
-			errString:  "parent name must contain only alphanumeric",
+			errString:  "parent path must start with /",
 		},
 		{
-			name:       "parent name with special characters",
+			name:       "parent path too long",
 			tagName:    "test",
-			parentName: stringPtr("parent@"),
+			parentPath: stringPtr("/" + string(make([]byte, 256))), // 257 chars
 			color:      nil,
 			wantErr:    true,
-			errString:  "parent name must contain only alphanumeric",
+			errString:  "parent path cannot exceed 255 characters",
 		},
 		{
 			name:      "invalid color format",
@@ -140,11 +141,65 @@ func TestValidateTagInput(t *testing.T) {
 			color:   stringPtr(""),
 			wantErr: false,
 		},
+		{
+			name:       "valid nested parent path",
+			tagName:    "leaf",
+			parentPath: stringPtr("/root/branch/node"),
+			color:      nil,
+			wantErr:    false,
+		},
+		{
+			name:       "valid deeply nested parent path",
+			tagName:    "deep",
+			parentPath: stringPtr("/a/very/deep/nested/hierarchy/path"),
+			color:      nil,
+			wantErr:    false,
+		},
+		{
+			name:       "parent path with trailing slash",
+			tagName:    "child",
+			parentPath: stringPtr("/parent/"),
+			color:      nil,
+			wantErr:    false,
+		},
+		{
+			name:       "parent path with multiple consecutive slashes",
+			tagName:    "child",
+			parentPath: stringPtr("/parent//subparent"),
+			color:      nil,
+			wantErr:    false,
+		},
+		{
+			name:       "valid JSON schema",
+			tagName:    "test",
+			jsonSchema: stringPtr(`{"type": "object", "properties": {"name": {"type": "string"}}}`),
+			wantErr:    false,
+		},
+		{
+			name:       "invalid JSON schema - malformed JSON",
+			tagName:    "test",
+			jsonSchema: stringPtr(`{"type": "object", "properties": {`),
+			wantErr:    true,
+			errString:  "invalid JSON schema",
+		},
+		{
+			name:       "invalid JSON schema - not JSON at all",
+			tagName:    "test",
+			jsonSchema: stringPtr(`not json at all`),
+			wantErr:    true,
+			errString:  "invalid JSON schema",
+		},
+		{
+			name:       "empty JSON schema string is valid",
+			tagName:    "test",
+			jsonSchema: stringPtr(""),
+			wantErr:    false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := s.validateTagInput(tt.tagName, tt.parentName, tt.color)
+			err := s.validateTagInput(tt.tagName, tt.parentPath, tt.color, tt.jsonSchema)
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errString != "" {

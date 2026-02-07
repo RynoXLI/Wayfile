@@ -52,7 +52,7 @@ func (s *TagServiceServer) CreateTag(
 		req.Namespace,
 		req.Name,
 		req.Description,
-		req.ParentName,
+		req.ParentPath,
 		req.Color,
 		req.JsonSchema,
 	)
@@ -63,10 +63,14 @@ func (s *TagServiceServer) CreateTag(
 		if errors.Is(err, services.ErrParentTagNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
+		if errors.Is(err, services.ErrTagAlreadyExists) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
 		if errors.Is(err, services.ErrInvalidParentReference) ||
 			errors.Is(err, services.ErrInvalidTagName) ||
 			errors.Is(err, services.ErrInvalidParentName) ||
-			errors.Is(err, services.ErrInvalidColor) {
+			errors.Is(err, services.ErrInvalidColor) ||
+			errors.Is(err, services.ErrInvalidJSONSchema) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -176,7 +180,7 @@ func (s *TagServiceServer) UpdateTag(
 		req.Name,
 		req.NewName,
 		req.Description,
-		req.ParentName,
+		req.ParentPath,
 		req.Color,
 		req.JsonSchema,
 	)
@@ -190,10 +194,14 @@ func (s *TagServiceServer) UpdateTag(
 		if errors.Is(err, services.ErrParentTagNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
+		if errors.Is(err, services.ErrTagAlreadyExists) {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
 		if errors.Is(err, services.ErrInvalidParentReference) ||
 			errors.Is(err, services.ErrInvalidTagName) ||
 			errors.Is(err, services.ErrInvalidParentName) ||
-			errors.Is(err, services.ErrInvalidColor) {
+			errors.Is(err, services.ErrInvalidColor) ||
+			errors.Is(err, services.ErrInvalidJSONSchema) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)

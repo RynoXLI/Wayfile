@@ -104,6 +104,7 @@ func main() {
 		publisher,
 		signer,
 		cfg.Server.BaseURL,
+		queries,
 	)
 
 	// Initialize namespace service

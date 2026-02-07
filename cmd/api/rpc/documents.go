@@ -66,3 +66,98 @@ func (s *DocumentsServiceServer) UpdateDocument(
 		errors.New("update document not yet implemented"),
 	)
 }
+
+// AddTagToDocument handles adding a tag to a document via Connect RPC
+func (s *DocumentsServiceServer) AddTagToDocument(
+	ctx context.Context,
+	req *documentsv1.AddTagToDocumentRequest,
+) (*documentsv1.AddTagToDocumentResponse, error) {
+	// Validate required fields
+	if req.Namespace == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
+	}
+	if req.DocumentId == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("document_id is required"),
+		)
+	}
+	if req.TagPath == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("tag_path is required"),
+		)
+	}
+
+	// Validate document ID
+	if _, err := uuid.Parse(req.DocumentId); err != nil {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("invalid document_id format"),
+		)
+	}
+
+	// Add the tag to the document
+	err := s.documentService.AddTagToDocument(
+		ctx,
+		req.Namespace,
+		req.DocumentId,
+		req.TagPath,
+		req.Attributes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &documentsv1.AddTagToDocumentResponse{}, nil
+}
+
+// RemoveTagFromDocument handles removing a tag from a document via Connect RPC
+func (s *DocumentsServiceServer) RemoveTagFromDocument(
+	ctx context.Context,
+	req *documentsv1.RemoveTagFromDocumentRequest,
+) (*documentsv1.RemoveTagFromDocumentResponse, error) {
+	// Validate required fields
+	if req.Namespace == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
+	}
+	if req.DocumentId == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("document_id is required"),
+		)
+	}
+	if req.TagPath == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("tag_path is required"),
+		)
+	}
+
+	// Validate document ID
+	if _, err := uuid.Parse(req.DocumentId); err != nil {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("invalid document_id format"),
+		)
+	}
+
+	// Remove the tag from the document
+	err := s.documentService.RemoveTagFromDocument(
+		ctx,
+		req.Namespace,
+		req.DocumentId,
+		req.TagPath,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &documentsv1.RemoveTagFromDocumentResponse{}, nil
+}

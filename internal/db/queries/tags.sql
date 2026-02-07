@@ -9,6 +9,9 @@ SELECT * FROM tags WHERE id = $1;
 -- name: GetTagByName :one
 SELECT * FROM tags WHERE namespace_id = $1 AND name = $2;
 
+-- name: GetTagByPath :one
+SELECT * FROM tags WHERE namespace_id = $1 AND path = $2;
+
 -- name: GetTagsByNamespace :many
 SELECT * FROM tags WHERE namespace_id = $1 ORDER BY path;
 

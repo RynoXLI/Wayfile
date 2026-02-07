@@ -131,8 +131,8 @@ type CreateTagRequest struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// description provides additional context about the tag.
 	Description *string `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	// parent_name is the name of the parent tag (optional).
-	ParentName *string `protobuf:"bytes,4,opt,name=parent_name,json=parentName,proto3,oneof" json:"parent_name,omitempty"`
+	// parent_path is the full path of the parent tag (e.g., '/backend/api').
+	ParentPath *string `protobuf:"bytes,4,opt,name=parent_path,json=parentPath,proto3,oneof" json:"parent_path,omitempty"`
 	// color is a hex color code for visual representation.
 	Color *string `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// json_schema is the JSON Schema definition for tag-specific attributes.
@@ -192,9 +192,9 @@ func (x *CreateTagRequest) GetDescription() string {
 	return ""
 }
 
-func (x *CreateTagRequest) GetParentName() string {
-	if x != nil && x.ParentName != nil {
-		return *x.ParentName
+func (x *CreateTagRequest) GetParentPath() string {
+	if x != nil && x.ParentPath != nil {
+		return *x.ParentPath
 	}
 	return ""
 }
@@ -463,8 +463,8 @@ type UpdateTagRequest struct {
 	NewName *string `protobuf:"bytes,3,opt,name=new_name,json=newName,proto3,oneof" json:"new_name,omitempty"`
 	// description is the new description for the tag.
 	Description *string `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	// parent_name is the new parent tag name (optional). Empty string moves to root.
-	ParentName *string `protobuf:"bytes,5,opt,name=parent_name,json=parentName,proto3,oneof" json:"parent_name,omitempty"`
+	// parent_path is the full path of the parent tag to move this tag under (e.g., '/backend/api'). Empty string moves to root.
+	ParentPath *string `protobuf:"bytes,5,opt,name=parent_path,json=parentPath,proto3,oneof" json:"parent_path,omitempty"`
 	// color is the new hex color code.
 	Color *string `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// json_schema is the new JSON Schema definition for tag-specific attributes.
@@ -531,9 +531,9 @@ func (x *UpdateTagRequest) GetDescription() string {
 	return ""
 }
 
-func (x *UpdateTagRequest) GetParentName() string {
-	if x != nil && x.ParentName != nil {
-		return *x.ParentName
+func (x *UpdateTagRequest) GetParentPath() string {
+	if x != nil && x.ParentPath != nil {
+		return *x.ParentPath
 	}
 	return ""
 }
@@ -713,13 +713,13 @@ const file_tags_v1_tags_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x12$\n" +
-	"\vparent_name\x18\x04 \x01(\tH\x01R\n" +
-	"parentName\x88\x01\x01\x12\x19\n" +
+	"\vparent_path\x18\x04 \x01(\tH\x01R\n" +
+	"parentPath\x88\x01\x01\x12\x19\n" +
 	"\x05color\x18\x05 \x01(\tH\x02R\x05color\x88\x01\x01\x12$\n" +
 	"\vjson_schema\x18\a \x01(\tH\x03R\n" +
 	"jsonSchema\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\x0e\n" +
-	"\f_parent_nameB\b\n" +
+	"\f_parent_pathB\b\n" +
 	"\x06_colorB\x0e\n" +
 	"\f_json_schema\"3\n" +
 	"\x11CreateTagResponse\x12\x1e\n" +
@@ -738,14 +738,14 @@ const file_tags_v1_tags_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
 	"\bnew_name\x18\x03 \x01(\tH\x00R\anewName\x88\x01\x01\x12%\n" +
 	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12$\n" +
-	"\vparent_name\x18\x05 \x01(\tH\x02R\n" +
-	"parentName\x88\x01\x01\x12\x19\n" +
+	"\vparent_path\x18\x05 \x01(\tH\x02R\n" +
+	"parentPath\x88\x01\x01\x12\x19\n" +
 	"\x05color\x18\x06 \x01(\tH\x03R\x05color\x88\x01\x01\x12$\n" +
 	"\vjson_schema\x18\b \x01(\tH\x04R\n" +
 	"jsonSchema\x88\x01\x01B\v\n" +
 	"\t_new_nameB\x0e\n" +
 	"\f_descriptionB\x0e\n" +
-	"\f_parent_nameB\b\n" +
+	"\f_parent_pathB\b\n" +
 	"\x06_colorB\x0e\n" +
 	"\f_json_schema\"3\n" +
 	"\x11UpdateTagResponse\x12\x1e\n" +

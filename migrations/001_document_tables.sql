@@ -42,7 +42,7 @@ CREATE TABLE tags (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    UNIQUE(namespace_id, name)
+    UNIQUE(namespace_id, path)
 );
 
 CREATE TABLE document_tags (

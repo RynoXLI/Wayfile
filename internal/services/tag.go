@@ -5,11 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	eventsv1 "github.com/RynoXLI/Wayfile/gen/go/events/v1"
@@ -32,6 +34,10 @@ var (
 	ErrInvalidParentReference = errors.New("invalid parent reference")
 	// ErrInvalidColor is returned when a color is invalid
 	ErrInvalidColor = errors.New("invalid color")
+	// ErrTagAlreadyExists is returned when a tag with the same path already exists
+	ErrTagAlreadyExists = errors.New("tag with this path already exists")
+	// ErrInvalidJSONSchema is returned when a JSON schema is malformed
+	ErrInvalidJSONSchema = errors.New("invalid JSON schema")
 
 	tagNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,98}[a-zA-Z0-9]$|^[a-zA-Z0-9]$`)
 	colorRegex   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -82,8 +88,14 @@ type TagWithSchema struct {
 	Schema *sqlc.AttributeSchema // nil if no schema exists
 }
 
-// validateTagInput validates tag name, optional parent name, and color
-func (s *TagService) validateTagInput(name string, parentName *string, color *string) error {
+// validateTagInput validates tag name, optional parent path, color, and JSON schema
+func (s *TagService) validateTagInput(
+	name string,
+	parentPath *string,
+	color *string,
+	jsonSchema *string,
+) error {
+	// Validate name
 	if name == "" {
 		return fmt.Errorf("%w: name cannot be empty", ErrInvalidTagName)
 	}
@@ -97,24 +109,30 @@ func (s *TagService) validateTagInput(name string, parentName *string, color *st
 		)
 	}
 
-	if parentName != nil && *parentName != "" {
-		if len(*parentName) > 100 {
-			return fmt.Errorf("%w: parent name cannot exceed 100 characters", ErrInvalidParentName)
+	// Validate parent path
+	if parentPath != nil && *parentPath != "" {
+		if len(*parentPath) > 255 {
+			return fmt.Errorf("%w: parent path cannot exceed 255 characters", ErrInvalidParentName)
 		}
-		if !tagNameRegex.MatchString(*parentName) {
-			return fmt.Errorf(
-				"%w: parent name must contain only alphanumeric characters, hyphens, and underscores, and cannot start or end with hyphen or underscore",
-				ErrInvalidParentName,
-			)
+		if !strings.HasPrefix(*parentPath, "/") {
+			return fmt.Errorf("%w: parent path must start with /", ErrInvalidParentName)
 		}
 	}
 
+	// Validate color
 	if color != nil && *color != "" {
 		if !colorRegex.MatchString(*color) {
 			return fmt.Errorf(
 				"%w: color must be a valid hex color code (e.g., #FF0000)",
 				ErrInvalidColor,
 			)
+		}
+	}
+
+	// Validate JSON schema if provided
+	if jsonSchema != nil && *jsonSchema != "" {
+		if !json.Valid([]byte(*jsonSchema)) {
+			return fmt.Errorf("%w: provided JSON schema is not valid JSON", ErrInvalidJSONSchema)
 		}
 	}
 
@@ -131,13 +149,13 @@ func buildTagPath(parentPath, name string) string {
 func (s *TagService) resolveParentForCreate(
 	ctx context.Context,
 	namespaceID pgtype.UUID,
-	parentName *string,
+	parentPath *string,
 ) (pgtype.UUID, string, error) {
-	if parentName == nil || *parentName == "" {
+	if parentPath == nil || *parentPath == "" {
 		return pgtype.UUID{}, "", nil
 	}
 
-	parent, err := s.queries.GetTagByName(ctx, namespaceID, *parentName)
+	parent, err := s.queries.GetTagByPath(ctx, namespaceID, *parentPath)
 	if err != nil {
 		return pgtype.UUID{}, "", ErrParentTagNotFound
 	}
@@ -149,9 +167,9 @@ func (s *TagService) resolveParentForUpdate(
 	ctx context.Context,
 	namespaceID pgtype.UUID,
 	currentTag sqlc.Tag,
-	parentName *string,
+	parentPath *string,
 ) (pgtype.UUID, string, error) {
-	if parentName == nil {
+	if parentPath == nil {
 		if currentTag.ParentID.Valid {
 			parent, err := s.queries.GetTagByID(ctx, currentTag.ParentID)
 			if err != nil {
@@ -162,11 +180,11 @@ func (s *TagService) resolveParentForUpdate(
 		return pgtype.UUID{}, "", nil
 	}
 
-	if *parentName == "" {
+	if *parentPath == "" {
 		return pgtype.UUID{}, "", nil
 	}
 
-	parent, err := s.queries.GetTagByName(ctx, namespaceID, *parentName)
+	parent, err := s.queries.GetTagByPath(ctx, namespaceID, *parentPath)
 	if err != nil {
 		return pgtype.UUID{}, "", ErrParentTagNotFound
 	}
@@ -185,12 +203,12 @@ func (s *TagService) CreateTag(
 	namespaceName string,
 	name string,
 	description *string,
-	parentName *string,
+	parentPath *string,
 	color *string,
 	jsonSchema *string,
 ) (*TagWithSchema, error) {
 	// Validate input
-	if err := s.validateTagInput(name, parentName, color); err != nil {
+	if err := s.validateTagInput(name, parentPath, color, jsonSchema); err != nil {
 		return nil, err
 	}
 
@@ -204,11 +222,11 @@ func (s *TagService) CreateTag(
 	}
 
 	// Resolve parent and build path
-	parentID, parentPath, err := s.resolveParentForCreate(ctx, namespace.ID, parentName)
+	parentID, resolvedParentPath, err := s.resolveParentForCreate(ctx, namespace.ID, parentPath)
 	if err != nil {
 		return nil, err
 	}
-	path := buildTagPath(parentPath, name)
+	path := buildTagPath(resolvedParentPath, name)
 
 	// Create the tag
 	tag, err := s.queries.CreateTag(
@@ -221,6 +239,12 @@ func (s *TagService) CreateTag(
 		&finalColor,
 	)
 	if err != nil {
+		// Check for unique constraint violation on path
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			// 23505 is unique_violation
+			return nil, ErrTagAlreadyExists
+		}
 		return nil, err
 	}
 
@@ -347,7 +371,7 @@ func (s *TagService) UpdateTag(
 	tagName string,
 	newName *string,
 	description *string,
-	parentName *string,
+	parentPath *string,
 	color *string,
 	jsonSchema *string,
 ) (*TagWithSchema, error) {
@@ -375,16 +399,21 @@ func (s *TagService) UpdateTag(
 	if newName != nil && *newName != "" {
 		updateName = *newName
 	}
-	if err := s.validateTagInput(updateName, parentName, color); err != nil {
+	if err := s.validateTagInput(updateName, parentPath, color, jsonSchema); err != nil {
 		return nil, err
 	}
 
 	// Resolve parent and build path
-	parentID, parentPath, err := s.resolveParentForUpdate(ctx, namespace.ID, tag, parentName)
+	parentID, resolvedParentPath, err := s.resolveParentForUpdate(
+		ctx,
+		namespace.ID,
+		tag,
+		parentPath,
+	)
 	if err != nil {
 		return nil, err
 	}
-	updatePath := buildTagPath(parentPath, updateName)
+	updatePath := buildTagPath(resolvedParentPath, updateName)
 
 	// Ensure color is set (use provided or keep existing)
 	var updateColor *string
@@ -409,6 +438,12 @@ func (s *TagService) UpdateTag(
 		updateColor,
 	)
 	if err != nil {
+		// Check for unique constraint violation on path
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			// 23505 is unique_violation
+			return nil, ErrTagAlreadyExists
+		}
 		return nil, err
 	}
 

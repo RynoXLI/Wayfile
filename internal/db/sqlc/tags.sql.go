@@ -119,6 +119,27 @@ func (q *Queries) GetTagByName(ctx context.Context, namespaceID pgtype.UUID, nam
 	return i, err
 }
 
+const getTagByPath = `-- name: GetTagByPath :one
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 AND path = $2
+`
+
+func (q *Queries) GetTagByPath(ctx context.Context, namespaceID pgtype.UUID, path string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTagByPath, namespaceID, path)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
 const getTagsByNamespace = `-- name: GetTagsByNamespace :many
 SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 ORDER BY path
 `

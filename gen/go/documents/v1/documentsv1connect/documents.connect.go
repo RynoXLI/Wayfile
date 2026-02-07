@@ -39,6 +39,12 @@ const (
 	// DocumentServiceDeleteDocumentProcedure is the fully-qualified name of the DocumentService's
 	// DeleteDocument RPC.
 	DocumentServiceDeleteDocumentProcedure = "/documents.v1.DocumentService/DeleteDocument"
+	// DocumentServiceAddTagToDocumentProcedure is the fully-qualified name of the DocumentService's
+	// AddTagToDocument RPC.
+	DocumentServiceAddTagToDocumentProcedure = "/documents.v1.DocumentService/AddTagToDocument"
+	// DocumentServiceRemoveTagFromDocumentProcedure is the fully-qualified name of the
+	// DocumentService's RemoveTagFromDocument RPC.
+	DocumentServiceRemoveTagFromDocumentProcedure = "/documents.v1.DocumentService/RemoveTagFromDocument"
 )
 
 // DocumentServiceClient is a client for the documents.v1.DocumentService service.
@@ -47,6 +53,10 @@ type DocumentServiceClient interface {
 	UpdateDocument(context.Context, *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error)
 	// DeleteDocument removes a document from a namespace.
 	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error)
+	// AddTagToDocument associates a tag with a document.
+	AddTagToDocument(context.Context, *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error)
+	// RemoveTagFromDocument removes a tag association from a document.
+	RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error)
 }
 
 // NewDocumentServiceClient constructs a client for the documents.v1.DocumentService service. By
@@ -72,13 +82,27 @@ func NewDocumentServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(documentServiceMethods.ByName("DeleteDocument")),
 			connect.WithClientOptions(opts...),
 		),
+		addTagToDocument: connect.NewClient[v1.AddTagToDocumentRequest, v1.AddTagToDocumentResponse](
+			httpClient,
+			baseURL+DocumentServiceAddTagToDocumentProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("AddTagToDocument")),
+			connect.WithClientOptions(opts...),
+		),
+		removeTagFromDocument: connect.NewClient[v1.RemoveTagFromDocumentRequest, v1.RemoveTagFromDocumentResponse](
+			httpClient,
+			baseURL+DocumentServiceRemoveTagFromDocumentProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("RemoveTagFromDocument")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // documentServiceClient implements DocumentServiceClient.
 type documentServiceClient struct {
-	updateDocument *connect.Client[v1.UpdateDocumentRequest, v1.UpdateDocumentResponse]
-	deleteDocument *connect.Client[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse]
+	updateDocument        *connect.Client[v1.UpdateDocumentRequest, v1.UpdateDocumentResponse]
+	deleteDocument        *connect.Client[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse]
+	addTagToDocument      *connect.Client[v1.AddTagToDocumentRequest, v1.AddTagToDocumentResponse]
+	removeTagFromDocument *connect.Client[v1.RemoveTagFromDocumentRequest, v1.RemoveTagFromDocumentResponse]
 }
 
 // UpdateDocument calls documents.v1.DocumentService.UpdateDocument.
@@ -99,12 +123,34 @@ func (c *documentServiceClient) DeleteDocument(ctx context.Context, req *v1.Dele
 	return nil, err
 }
 
+// AddTagToDocument calls documents.v1.DocumentService.AddTagToDocument.
+func (c *documentServiceClient) AddTagToDocument(ctx context.Context, req *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error) {
+	response, err := c.addTagToDocument.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
+// RemoveTagFromDocument calls documents.v1.DocumentService.RemoveTagFromDocument.
+func (c *documentServiceClient) RemoveTagFromDocument(ctx context.Context, req *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error) {
+	response, err := c.removeTagFromDocument.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
 // DocumentServiceHandler is an implementation of the documents.v1.DocumentService service.
 type DocumentServiceHandler interface {
 	// UpdateDocument updates an existing document's content.
 	UpdateDocument(context.Context, *v1.UpdateDocumentRequest) (*v1.UpdateDocumentResponse, error)
 	// DeleteDocument removes a document from a namespace.
 	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error)
+	// AddTagToDocument associates a tag with a document.
+	AddTagToDocument(context.Context, *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error)
+	// RemoveTagFromDocument removes a tag association from a document.
+	RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error)
 }
 
 // NewDocumentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -126,12 +172,28 @@ func NewDocumentServiceHandler(svc DocumentServiceHandler, opts ...connect.Handl
 		connect.WithSchema(documentServiceMethods.ByName("DeleteDocument")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentServiceAddTagToDocumentHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceAddTagToDocumentProcedure,
+		svc.AddTagToDocument,
+		connect.WithSchema(documentServiceMethods.ByName("AddTagToDocument")),
+		connect.WithHandlerOptions(opts...),
+	)
+	documentServiceRemoveTagFromDocumentHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceRemoveTagFromDocumentProcedure,
+		svc.RemoveTagFromDocument,
+		connect.WithSchema(documentServiceMethods.ByName("RemoveTagFromDocument")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/documents.v1.DocumentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DocumentServiceUpdateDocumentProcedure:
 			documentServiceUpdateDocumentHandler.ServeHTTP(w, r)
 		case DocumentServiceDeleteDocumentProcedure:
 			documentServiceDeleteDocumentHandler.ServeHTTP(w, r)
+		case DocumentServiceAddTagToDocumentProcedure:
+			documentServiceAddTagToDocumentHandler.ServeHTTP(w, r)
+		case DocumentServiceRemoveTagFromDocumentProcedure:
+			documentServiceRemoveTagFromDocumentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -147,4 +209,12 @@ func (UnimplementedDocumentServiceHandler) UpdateDocument(context.Context, *v1.U
 
 func (UnimplementedDocumentServiceHandler) DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.DeleteDocument is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) AddTagToDocument(context.Context, *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.AddTagToDocument is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.RemoveTagFromDocument is not implemented"))
 }

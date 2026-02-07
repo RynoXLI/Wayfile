@@ -136,7 +136,13 @@ func SetupTestApp(t *testing.T) *TestApp {
 	// Initialize document service
 	signer := auth.NewSigner("test-secret")
 	baseURL := "http://localhost:8080"
-	documentService := services.NewDocumentService(storageService, publisher, signer, baseURL)
+	documentService := services.NewDocumentService(
+		storageService,
+		publisher,
+		signer,
+		baseURL,
+		queries,
+	)
 
 	// Initialize namespace service
 	namespaceService := services.NewNamespaceService(queries)
