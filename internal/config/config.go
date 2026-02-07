@@ -28,6 +28,7 @@ type ServerConfig struct {
 	RateLimitRPS   int    `mapstructure:"rate_limit_rps"`   // requests per second
 	RateLimitBurst int    `mapstructure:"rate_limit_burst"` // burst size
 	MaxUploadSize  int64  `mapstructure:"max_upload_size"`  // bytes
+	EnableDocs     bool   `mapstructure:"enable_docs"`      // enable /docs endpoint
 }
 
 // DatabaseConfig holds database-related configuration
@@ -81,6 +82,12 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind env variable: %w", err)
 	}
+
+	// Set defaults
+	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.host", "0.0.0.0")
+	viper.SetDefault("server.base_url", "http://localhost:8080")
+	viper.SetDefault("server.enable_docs", true)
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)

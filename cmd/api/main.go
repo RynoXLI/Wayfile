@@ -10,13 +10,18 @@ import (
 	"os"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
+	"github.com/RynoXLI/Wayfile/cmd/api/rpc"
+	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1/documentsv1connect"
 	"github.com/RynoXLI/Wayfile/internal/auth"
 	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
@@ -140,11 +145,22 @@ func main() {
 		{URL: cfg.Server.BaseURL},
 	}
 	humaConfig.OpenAPIPath = "/openapi.json"
+	if !cfg.Server.EnableDocs {
+		humaConfig.DocsPath = "" // Disable /docs endpoint
+	}
 
 	api := humachi.New(router, humaConfig)
 
 	// Register all routes
 	RegisterRoutes(api, app)
+
+	// Mount Connect RPC handlers
+	documentsRPCService := rpc.NewDocumentsServiceServer(documentService)
+	connectPath, connectHandler := documentsv1.NewDocumentServiceHandler(
+		documentsRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(connectPath, connectHandler)
 
 	// Add endpoint for OpenAPI 3.0.3 (downgraded for oapi-codegen)
 	router.Get("/openapi-3.0.yaml", func(w http.ResponseWriter, _ *http.Request) {
@@ -153,18 +169,23 @@ func main() {
 		_, _ = w.Write(b)
 	})
 
+	// Use h2c for HTTP/2 without TLS (required for Connect RPC)
+	h2cHandler := h2c.NewHandler(router, &http2.Server{})
+
 	// Start server with timeouts
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      router,
+		Handler:      h2cHandler,
 		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
 		IdleTimeout:  time.Duration(cfg.Server.IdleTimeout) * time.Second,
 	}
 
 	logger.Info("Server listening", "address", addr)
-	logger.Info("OpenAPI docs available at", "url", cfg.Server.BaseURL+"/docs")
+	if cfg.Server.EnableDocs {
+		logger.Info("OpenAPI docs available at", "url", cfg.Server.BaseURL+"/docs")
+	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Server failed:", err)
 	}

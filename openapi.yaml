@@ -166,38 +166,6 @@ paths:
       tags:
         - documents
   /api/v1/ns/{namespace}/documents/{documentID}:
-    delete:
-      description: Delete a file from the specified namespace
-      operationId: delete-document
-      parameters:
-        - description: Namespace name
-          in: path
-          name: namespace
-          required: true
-          schema:
-            description: Namespace name
-            maxLength: 255
-            type: string
-        - description: Document UUID
-          in: path
-          name: documentID
-          required: true
-          schema:
-            description: Document UUID
-            format: uuid
-            type: string
-      responses:
-        "204":
-          description: No Content
-        default:
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Error
-      summary: Delete a document
-      tags:
-        - documents
     get:
       description: Download a file from the specified namespace
       operationId: download-document

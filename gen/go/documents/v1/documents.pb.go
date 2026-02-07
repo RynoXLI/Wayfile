@@ -73,6 +73,94 @@ func (x *UpdateDocumentRequest) GetContent() string {
 	return ""
 }
 
+type DeleteDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentRequest) Reset() {
+	*x = DeleteDocumentRequest{}
+	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentRequest) ProtoMessage() {}
+
+func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DeleteDocumentRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *DeleteDocumentRequest) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+type DeleteDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentResponse) Reset() {
+	*x = DeleteDocumentResponse{}
+	mi := &file_documents_v1_documents_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentResponse) ProtoMessage() {}
+
+func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentResponse.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{2}
+}
+
 type Document struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
@@ -84,7 +172,7 @@ type Document struct {
 
 func (x *Document) Reset() {
 	*x = Document{}
-	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	mi := &file_documents_v1_documents_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -96,7 +184,7 @@ func (x *Document) String() string {
 func (*Document) ProtoMessage() {}
 
 func (x *Document) ProtoReflect() protoreflect.Message {
-	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	mi := &file_documents_v1_documents_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,7 +197,7 @@ func (x *Document) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Document.ProtoReflect.Descriptor instead.
 func (*Document) Descriptor() ([]byte, []int) {
-	return file_documents_v1_documents_proto_rawDescGZIP(), []int{1}
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Document) GetDocumentId() string {
@@ -141,14 +229,20 @@ const file_documents_v1_documents_proto_rawDesc = "" +
 	"\x15UpdateDocumentRequest\x12\x1f\n" +
 	"\vdocument_id\x18\x01 \x01(\tR\n" +
 	"documentId\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"[\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"V\n" +
+	"\x15DeleteDocumentRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
+	"\vdocument_id\x18\x02 \x01(\tR\n" +
+	"documentId\"\x18\n" +
+	"\x16DeleteDocumentResponse\"[\n" +
 	"\bDocument\x12\x1f\n" +
 	"\vdocument_id\x18\x01 \x01(\tR\n" +
 	"documentId\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
-	"\x05title\x18\x03 \x01(\tR\x05title2`\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title2\xbd\x01\n" +
 	"\x0fDocumentService\x12M\n" +
-	"\x0eUpdateDocument\x12#.documents.v1.UpdateDocumentRequest\x1a\x16.documents.v1.DocumentB\xaf\x01\n" +
+	"\x0eUpdateDocument\x12#.documents.v1.UpdateDocumentRequest\x1a\x16.documents.v1.Document\x12[\n" +
+	"\x0eDeleteDocument\x12#.documents.v1.DeleteDocumentRequest\x1a$.documents.v1.DeleteDocumentResponseB\xaf\x01\n" +
 	"\x10com.documents.v1B\x0eDocumentsProtoP\x01Z:github.com/RynoXLI/Wayfile/gen/go/documents/v1;documentsv1\xa2\x02\x03DXX\xaa\x02\fDocuments.V1\xca\x02\fDocuments\\V1\xe2\x02\x18Documents\\V1\\GPBMetadata\xea\x02\rDocuments::V1b\x06proto3"
 
 var (
@@ -163,16 +257,20 @@ func file_documents_v1_documents_proto_rawDescGZIP() []byte {
 	return file_documents_v1_documents_proto_rawDescData
 }
 
-var file_documents_v1_documents_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_documents_v1_documents_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_documents_v1_documents_proto_goTypes = []any{
-	(*UpdateDocumentRequest)(nil), // 0: documents.v1.UpdateDocumentRequest
-	(*Document)(nil),              // 1: documents.v1.Document
+	(*UpdateDocumentRequest)(nil),  // 0: documents.v1.UpdateDocumentRequest
+	(*DeleteDocumentRequest)(nil),  // 1: documents.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil), // 2: documents.v1.DeleteDocumentResponse
+	(*Document)(nil),               // 3: documents.v1.Document
 }
 var file_documents_v1_documents_proto_depIdxs = []int32{
 	0, // 0: documents.v1.DocumentService.UpdateDocument:input_type -> documents.v1.UpdateDocumentRequest
-	1, // 1: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.Document
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	1, // 1: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
+	3, // 2: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.Document
+	2, // 3: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -189,7 +287,7 @@ func file_documents_v1_documents_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_documents_v1_documents_proto_rawDesc), len(file_documents_v1_documents_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

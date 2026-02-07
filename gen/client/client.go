@@ -177,9 +177,6 @@ type ClientInterface interface {
 	// UploadDocumentWithBody request with any body
 	UploadDocumentWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteDocument request
-	DeleteDocument(ctx context.Context, namespace string, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DownloadDocument request
 	DownloadDocument(ctx context.Context, namespace string, documentID openapi_types.UUID, params *DownloadDocumentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -189,18 +186,6 @@ type ClientInterface interface {
 
 func (c *Client) UploadDocumentWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUploadDocumentRequestWithBody(c.Server, namespace, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteDocument(ctx context.Context, namespace string, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteDocumentRequest(c.Server, namespace, documentID)
 	if err != nil {
 		return nil, err
 	}
@@ -267,47 +252,6 @@ func NewUploadDocumentRequestWithBody(server string, namespace string, contentTy
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteDocumentRequest generates requests for DeleteDocument
-func NewDeleteDocumentRequest(server string, namespace string, documentID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "documentID", runtime.ParamLocationPath, documentID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/ns/%s/documents/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -448,9 +392,6 @@ type ClientWithResponsesInterface interface {
 	// UploadDocumentWithBodyWithResponse request with any body
 	UploadDocumentWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadDocumentResponse, error)
 
-	// DeleteDocumentWithResponse request
-	DeleteDocumentWithResponse(ctx context.Context, namespace string, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteDocumentResponse, error)
-
 	// DownloadDocumentWithResponse request
 	DownloadDocumentWithResponse(ctx context.Context, namespace string, documentID openapi_types.UUID, params *DownloadDocumentParams, reqEditors ...RequestEditorFn) (*DownloadDocumentResponse, error)
 
@@ -475,28 +416,6 @@ func (r UploadDocumentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UploadDocumentResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteDocumentResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteDocumentResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteDocumentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -557,15 +476,6 @@ func (c *ClientWithResponses) UploadDocumentWithBodyWithResponse(ctx context.Con
 	return ParseUploadDocumentResponse(rsp)
 }
 
-// DeleteDocumentWithResponse request returning *DeleteDocumentResponse
-func (c *ClientWithResponses) DeleteDocumentWithResponse(ctx context.Context, namespace string, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteDocumentResponse, error) {
-	rsp, err := c.DeleteDocument(ctx, namespace, documentID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteDocumentResponse(rsp)
-}
-
 // DownloadDocumentWithResponse request returning *DownloadDocumentResponse
 func (c *ClientWithResponses) DownloadDocumentWithResponse(ctx context.Context, namespace string, documentID openapi_types.UUID, params *DownloadDocumentParams, reqEditors ...RequestEditorFn) (*DownloadDocumentResponse, error) {
 	rsp, err := c.DownloadDocument(ctx, namespace, documentID, params, reqEditors...)
@@ -605,32 +515,6 @@ func ParseUploadDocumentResponse(rsp *http.Response) (*UploadDocumentResponse, e
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteDocumentResponse parses an HTTP response from a DeleteDocumentWithResponse call
-func ParseDeleteDocumentResponse(rsp *http.Response) (*DeleteDocumentResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteDocumentResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

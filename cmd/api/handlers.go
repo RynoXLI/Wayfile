@@ -51,17 +51,6 @@ type DocumentDownloadInput struct {
 	Token      string `                                  doc:"Pre-signed token for authentication"               query:"token" required:"false"`
 }
 
-// DocumentDeleteInput handles delete requests
-type DocumentDeleteInput struct {
-	Namespace  string `path:"namespace"  maxLength:"255" doc:"Namespace name"`
-	DocumentID string `path:"documentID"                 doc:"Document UUID"  format:"uuid"`
-}
-
-// DocumentDeleteOutput is the delete response
-type DocumentDeleteOutput struct {
-	Status int `header:"Status-Code"`
-}
-
 // RegisterRoutes registers all Huma operations
 func RegisterRoutes(api huma.API, app *App) {
 	// Health check
@@ -108,13 +97,14 @@ func RegisterRoutes(api huma.API, app *App) {
 		// Get file metadata
 		filename := formData.File.Filename
 		size := formData.File.Size
+		contentType := formData.File.ContentType
 
 		// Upload the file using the document service
 		result, err := app.documentService.UploadDocument(
 			ctx,
 			input.Namespace,
 			filename,
-			"application/octet-stream", // Huma doesn't expose content-type easily
+			contentType,
 			int(size),
 			formData.File,
 		)
@@ -206,34 +196,5 @@ func RegisterRoutes(api huma.API, app *App) {
 				}
 			},
 		}, nil
-	})
-
-	// Delete document
-	huma.Register(api, huma.Operation{
-		OperationID: "delete-document",
-		Method:      "DELETE",
-		Path:        "/api/v1/ns/{namespace}/documents/{documentID}",
-		Summary:     "Delete a document",
-		Description: "Delete a file from the specified namespace",
-		Tags:        []string{"documents"},
-	}, func(ctx context.Context, input *DocumentDeleteInput) (*DocumentDeleteOutput, error) {
-		// Validate UUID
-		if _, err := uuid.Parse(input.DocumentID); err != nil {
-			return nil, huma.Error404NotFound("Invalid document ID")
-		}
-
-		// Delete the file
-		err := app.documentService.DeleteDocument(ctx, input.Namespace, input.DocumentID)
-		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
-				return nil, huma.Error404NotFound("File not found")
-			}
-			app.logger.Error("Failed to delete file", "error", err)
-			return nil, huma.Error500InternalServerError("Error deleting the file")
-		}
-
-		resp := &DocumentDeleteOutput{}
-		resp.Status = 204
-		return resp, nil
 	})
 }

@@ -4,12 +4,20 @@ package documents.v1;
 
 service DocumentService {
   rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
 }
 
 message UpdateDocumentRequest {
   string document_id = 1;
   string content = 2;
 }
+
+message DeleteDocumentRequest {
+  string namespace = 1;
+  string document_id = 2;
+}
+
+message DeleteDocumentResponse {}
 
 message Document {
   string document_id = 1;

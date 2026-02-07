@@ -36,11 +36,15 @@ const (
 	// DocumentServiceUpdateDocumentProcedure is the fully-qualified name of the DocumentService's
 	// UpdateDocument RPC.
 	DocumentServiceUpdateDocumentProcedure = "/documents.v1.DocumentService/UpdateDocument"
+	// DocumentServiceDeleteDocumentProcedure is the fully-qualified name of the DocumentService's
+	// DeleteDocument RPC.
+	DocumentServiceDeleteDocumentProcedure = "/documents.v1.DocumentService/DeleteDocument"
 )
 
 // DocumentServiceClient is a client for the documents.v1.DocumentService service.
 type DocumentServiceClient interface {
 	UpdateDocument(context.Context, *v1.UpdateDocumentRequest) (*v1.Document, error)
+	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error)
 }
 
 // NewDocumentServiceClient constructs a client for the documents.v1.DocumentService service. By
@@ -60,12 +64,19 @@ func NewDocumentServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(documentServiceMethods.ByName("UpdateDocument")),
 			connect.WithClientOptions(opts...),
 		),
+		deleteDocument: connect.NewClient[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse](
+			httpClient,
+			baseURL+DocumentServiceDeleteDocumentProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("DeleteDocument")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // documentServiceClient implements DocumentServiceClient.
 type documentServiceClient struct {
 	updateDocument *connect.Client[v1.UpdateDocumentRequest, v1.Document]
+	deleteDocument *connect.Client[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse]
 }
 
 // UpdateDocument calls documents.v1.DocumentService.UpdateDocument.
@@ -77,9 +88,19 @@ func (c *documentServiceClient) UpdateDocument(ctx context.Context, req *v1.Upda
 	return nil, err
 }
 
+// DeleteDocument calls documents.v1.DocumentService.DeleteDocument.
+func (c *documentServiceClient) DeleteDocument(ctx context.Context, req *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
+	response, err := c.deleteDocument.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
 // DocumentServiceHandler is an implementation of the documents.v1.DocumentService service.
 type DocumentServiceHandler interface {
 	UpdateDocument(context.Context, *v1.UpdateDocumentRequest) (*v1.Document, error)
+	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error)
 }
 
 // NewDocumentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -95,10 +116,18 @@ func NewDocumentServiceHandler(svc DocumentServiceHandler, opts ...connect.Handl
 		connect.WithSchema(documentServiceMethods.ByName("UpdateDocument")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentServiceDeleteDocumentHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceDeleteDocumentProcedure,
+		svc.DeleteDocument,
+		connect.WithSchema(documentServiceMethods.ByName("DeleteDocument")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/documents.v1.DocumentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DocumentServiceUpdateDocumentProcedure:
 			documentServiceUpdateDocumentHandler.ServeHTTP(w, r)
+		case DocumentServiceDeleteDocumentProcedure:
+			documentServiceDeleteDocumentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -110,4 +139,8 @@ type UnimplementedDocumentServiceHandler struct{}
 
 func (UnimplementedDocumentServiceHandler) UpdateDocument(context.Context, *v1.UpdateDocumentRequest) (*v1.Document, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.UpdateDocument is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*v1.DeleteDocumentResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.DeleteDocument is not implemented"))
 }
