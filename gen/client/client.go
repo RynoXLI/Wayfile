@@ -402,7 +402,7 @@ type ClientWithResponsesInterface interface {
 type UploadDocumentResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *DocumentResponse
+	JSON201                       *DocumentResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -508,12 +508,12 @@ func ParseUploadDocumentResponse(rsp *http.Response) (*UploadDocumentResponse, e
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest DocumentResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel

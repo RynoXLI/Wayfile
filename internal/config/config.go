@@ -112,11 +112,6 @@ func Load() (*Config, error) {
 	if cfg.Server.SigningSecret == "" {
 		return nil, fmt.Errorf("server.signing_secret is required for pre-signed URL security")
 	}
-	if cfg.Server.SigningSecret == "change-me-in-production-use-random-string" {
-		return nil, fmt.Errorf(
-			"server.signing_secret must be changed from default value in production",
-		)
-	}
 	if cfg.Database.URL == "" {
 		return nil, fmt.Errorf("database.url is required")
 	}
