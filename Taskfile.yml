@@ -83,4 +83,4 @@ tasks:
     cmds:
       - mkdir -p gen/client
       - oapi-codegen -generate types,client -package client openapi.yaml > gen/client/client.go
-      - echo "Client generated in gen/client/client.go"yaml
+      - echo "Client generated in gen/client/client.go"
