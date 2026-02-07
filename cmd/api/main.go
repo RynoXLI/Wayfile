@@ -22,6 +22,7 @@ import (
 
 	"github.com/RynoXLI/Wayfile/cmd/api/rpc"
 	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1/documentsv1connect"
+	namespacesv1 "github.com/RynoXLI/Wayfile/gen/go/namespaces/v1/namespacesv1connect"
 	"github.com/RynoXLI/Wayfile/internal/auth"
 	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
@@ -161,6 +162,14 @@ func main() {
 		connect.WithInterceptors(),
 	)
 	router.Mount(connectPath, connectHandler)
+
+	// Mount Namespace RPC handlers
+	namespaceRPCService := rpc.NewNamespaceServiceServer(queries)
+	namespacePath, namespaceHandler := namespacesv1.NewNamespaceServiceHandler(
+		namespaceRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(namespacePath, namespaceHandler)
 
 	// Add endpoint for OpenAPI 3.0.3 (downgraded for oapi-codegen)
 	router.Get("/openapi-3.0.yaml", func(w http.ResponseWriter, _ *http.Request) {

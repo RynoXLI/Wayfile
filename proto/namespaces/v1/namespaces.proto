@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package namespaces.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// NamespaceService provides operations for managing namespaces.
+service NamespaceService {
+  // CreateNamespace creates a new namespace.
+  rpc CreateNamespace(CreateNamespaceRequest) returns (CreateNamespaceResponse);
+  // GetNamespaces retrieves all namespaces.
+  rpc GetNamespaces(GetNamespacesRequest) returns (GetNamespacesResponse);
+  // GetNamespace retrieves a specific namespace by name.
+  rpc GetNamespace(GetNamespaceRequest) returns (GetNamespaceResponse);
+  // DeleteNamespace removes a namespace.
+  rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse);
+}
+
+// Namespace represents a container for organizing documents.
+message Namespace {
+  // id is the unique identifier for the namespace.
+  string id = 1;
+  // name is the human-readable name of the namespace.
+  string name = 2;
+  // created_at is the timestamp when the namespace was created.
+  google.protobuf.Timestamp created_at = 3;
+  // modified_at is the timestamp when the namespace was last modified.
+  google.protobuf.Timestamp modified_at = 4;
+}
+
+// CreateNamespaceRequest contains the data needed to create a namespace.
+message CreateNamespaceRequest {
+  // name is the name for the new namespace.
+  string name = 1;
+}
+
+// CreateNamespaceResponse contains the created namespace.
+message CreateNamespaceResponse {
+  // namespace is the newly created namespace.
+  Namespace namespace = 1;
+}
+
+// GetNamespacesRequest is used to retrieve all namespaces.
+message GetNamespacesRequest {}
+
+// GetNamespacesResponse contains a list of namespaces.
+message GetNamespacesResponse {
+  // namespaces is the list of all namespaces.
+  repeated Namespace namespaces = 1;
+}
+
+// GetNamespaceRequest contains the identifier for retrieving a namespace.
+message GetNamespaceRequest {
+  // name is the name of the namespace to retrieve.
+  string name = 1;
+}
+
+// GetNamespaceResponse contains the requested namespace.
+message GetNamespaceResponse {
+  // namespace is the requested namespace.
+  Namespace namespace = 1;
+}
+
+// DeleteNamespaceRequest contains the identifier for deleting a namespace.
+message DeleteNamespaceRequest {
+  // name is the name of the namespace to delete.
+  string name = 1;
+}
+
+// DeleteNamespaceResponse is returned when a namespace is successfully deleted.
+message DeleteNamespaceResponse {}

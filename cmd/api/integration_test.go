@@ -37,6 +37,8 @@ import (
 	"github.com/RynoXLI/Wayfile/cmd/api/rpc"
 	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1"
 	"github.com/RynoXLI/Wayfile/gen/go/documents/v1/documentsv1connect"
+	namespacesv1 "github.com/RynoXLI/Wayfile/gen/go/namespaces/v1"
+	"github.com/RynoXLI/Wayfile/gen/go/namespaces/v1/namespacesv1connect"
 	"github.com/RynoXLI/Wayfile/internal/auth"
 	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
@@ -48,15 +50,16 @@ import (
 
 // testApp holds all the test dependencies
 type testApp struct {
-	app           *App
-	router        http.Handler
-	pool          *pgxpool.Pool
-	nc            *nats.Conn
-	tmpDir        string
-	pgContainer   *postgres.PostgresContainer
-	natsServer    *server.Server
-	connectClient documentsv1connect.DocumentServiceClient
-	testServer    *httptest.Server
+	app             *App
+	router          http.Handler
+	pool            *pgxpool.Pool
+	nc              *nats.Conn
+	tmpDir          string
+	pgContainer     *postgres.PostgresContainer
+	natsServer      *server.Server
+	connectClient   documentsv1connect.DocumentServiceClient
+	namespaceClient namespacesv1connect.NamespaceServiceClient
+	testServer      *httptest.Server
 }
 
 // setupTestApp initializes the application for integration testing
@@ -196,28 +199,41 @@ func setupTestApp(t *testing.T) *testApp {
 	)
 	router.Mount(connectPath, connectHandler)
 
+	// Mount Namespace RPC handlers
+	namespaceRPCService := rpc.NewNamespaceServiceServer(queries)
+	namespacePath, namespaceHandler := namespacesv1connect.NewNamespaceServiceHandler(
+		namespaceRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(namespacePath, namespaceHandler)
+
 	// Wrap with h2c for HTTP/2
 	h2cHandler := h2c.NewHandler(router, &http2.Server{})
 
 	// Start test HTTP server
 	testServer := httptest.NewServer(h2cHandler)
 
-	// Create Connect RPC client using test server URL
+	// Create Connect RPC clients using test server URL
 	connectClient := documentsv1connect.NewDocumentServiceClient(
+		http.DefaultClient,
+		testServer.URL,
+	)
+	namespaceClient := namespacesv1connect.NewNamespaceServiceClient(
 		http.DefaultClient,
 		testServer.URL,
 	)
 
 	return &testApp{
-		app:           app,
-		router:        h2cHandler,
-		pool:          pool,
-		nc:            nc,
-		tmpDir:        tmpDir,
-		pgContainer:   pgContainer,
-		natsServer:    natsServer,
-		connectClient: connectClient,
-		testServer:    testServer,
+		app:             app,
+		router:          h2cHandler,
+		pool:            pool,
+		nc:              nc,
+		tmpDir:          tmpDir,
+		pgContainer:     pgContainer,
+		natsServer:      natsServer,
+		connectClient:   connectClient,
+		namespaceClient: namespaceClient,
+		testServer:      testServer,
 	}
 }
 
@@ -272,8 +288,9 @@ func TestUploadDocument(t *testing.T) {
 
 	// Create namespace first
 	ctx := context.Background()
-	queries := sqlc.New(ta.pool)
-	_, err := queries.CreateNamespace(ctx, "test-namespace")
+	_, err := ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "test-namespace",
+	})
 	require.NoError(t, err)
 
 	// Create a test file content
@@ -322,6 +339,7 @@ func TestUploadDocument(t *testing.T) {
 	documentID := uploadResponse.ID
 
 	// Verify MIME type was stored correctly
+	queries := sqlc.New(ta.pool)
 	docUUID, err := uuid.Parse(documentID)
 	require.NoError(t, err)
 	doc, err := queries.GetDocumentByID(ctx, pgtype.UUID{Bytes: docUUID, Valid: true})
@@ -583,8 +601,9 @@ func TestInvalidDocumentID(t *testing.T) {
 
 	// Create namespace
 	ctx := context.Background()
-	queries := sqlc.New(ta.pool)
-	_, err := queries.CreateNamespace(ctx, "test-namespace")
+	_, err := ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "test-namespace",
+	})
 	require.NoError(t, err)
 
 	// Try to download with invalid UUID
@@ -623,10 +642,13 @@ func TestNamespaceIsolation(t *testing.T) {
 
 	// Create two namespaces
 	ctx := context.Background()
-	queries := sqlc.New(ta.pool)
-	_, err := queries.CreateNamespace(ctx, "namespace-a")
+	_, err := ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "namespace-a",
+	})
 	require.NoError(t, err)
-	_, err = queries.CreateNamespace(ctx, "namespace-b")
+	_, err = ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "namespace-b",
+	})
 	require.NoError(t, err)
 
 	// Upload file to namespace-a
@@ -708,8 +730,9 @@ func TestUploadErrors(t *testing.T) {
 
 	// Create namespace
 	ctx := context.Background()
-	queries := sqlc.New(ta.pool)
-	_, err := queries.CreateNamespace(ctx, "test-namespace")
+	_, err := ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "test-namespace",
+	})
 	require.NoError(t, err)
 
 	// Test missing file in form
@@ -742,4 +765,148 @@ func TestUploadErrors(t *testing.T) {
 	ta.router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNotFound, w.Code, "Non-existent namespace should return 404")
+}
+
+// TestNamespaceCRUD tests the namespace CRUD operations via Connect RPC
+func TestNamespaceCRUD(t *testing.T) {
+	ta := setupTestApp(t)
+	defer ta.cleanup(t)
+
+	ctx := context.Background()
+
+	// === Step 1: Create a namespace ===
+	createResp, err := ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "test-namespace-1",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp)
+	require.NotNil(t, createResp.Namespace)
+	require.Equal(t, "test-namespace-1", createResp.Namespace.Name)
+	require.NotEmpty(t, createResp.Namespace.Id)
+	require.NotNil(t, createResp.Namespace.CreatedAt)
+	require.NotNil(t, createResp.Namespace.ModifiedAt)
+
+	// === Step 2: Create another namespace ===
+	createResp2, err := ta.namespaceClient.CreateNamespace(
+		ctx,
+		&namespacesv1.CreateNamespaceRequest{
+			Name: "test-namespace-2",
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, createResp2)
+	require.NotNil(t, createResp2.Namespace)
+	require.Equal(t, "test-namespace-2", createResp2.Namespace.Name)
+
+	// === Step 3: Get all namespaces ===
+	listResp, err := ta.namespaceClient.GetNamespaces(ctx, &namespacesv1.GetNamespacesRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, listResp)
+	require.GreaterOrEqual(t, len(listResp.Namespaces), 2, "Should have at least 2 namespaces")
+
+	// Check that our namespaces are in the list
+	foundNs1 := false
+	foundNs2 := false
+	for _, ns := range listResp.Namespaces {
+		if ns.Name == "test-namespace-1" {
+			foundNs1 = true
+		}
+		if ns.Name == "test-namespace-2" {
+			foundNs2 = true
+		}
+	}
+	require.True(t, foundNs1, "test-namespace-1 should be in the list")
+	require.True(t, foundNs2, "test-namespace-2 should be in the list")
+
+	// === Step 4: Get specific namespace by name ===
+	getResp, err := ta.namespaceClient.GetNamespace(ctx, &namespacesv1.GetNamespaceRequest{
+		Name: "test-namespace-1",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, getResp)
+	require.NotNil(t, getResp.Namespace)
+	require.Equal(t, "test-namespace-1", getResp.Namespace.Name)
+	require.Equal(t, createResp.Namespace.Id, getResp.Namespace.Id)
+
+	// === Step 5: Try to get non-existent namespace ===
+	_, err = ta.namespaceClient.GetNamespace(ctx, &namespacesv1.GetNamespaceRequest{
+		Name: "nonexistent",
+	})
+	require.Error(t, err)
+	var connectErr *connect.Error
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeNotFound,
+		connectErr.Code(),
+		"Non-existent namespace should return NotFound",
+	)
+
+	// === Step 6: Delete a namespace ===
+	deleteResp, err := ta.namespaceClient.DeleteNamespace(ctx, &namespacesv1.DeleteNamespaceRequest{
+		Name: "test-namespace-1",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, deleteResp)
+
+	// === Step 7: Verify namespace was deleted ===
+	_, err = ta.namespaceClient.GetNamespace(ctx, &namespacesv1.GetNamespaceRequest{
+		Name: "test-namespace-1",
+	})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeNotFound,
+		connectErr.Code(),
+		"Deleted namespace should not be found",
+	)
+
+	// === Step 8: Verify other namespace still exists ===
+	getResp2, err := ta.namespaceClient.GetNamespace(ctx, &namespacesv1.GetNamespaceRequest{
+		Name: "test-namespace-2",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, getResp2)
+	require.NotNil(t, getResp2.Namespace)
+	require.Equal(t, "test-namespace-2", getResp2.Namespace.Name)
+
+	// === Step 9: Test validation - empty namespace name on create ===
+	_, err = ta.namespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "",
+	})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeInvalidArgument,
+		connectErr.Code(),
+		"Empty name should return InvalidArgument",
+	)
+
+	// === Step 10: Test validation - empty namespace name on get ===
+	_, err = ta.namespaceClient.GetNamespace(ctx, &namespacesv1.GetNamespaceRequest{
+		Name: "",
+	})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeInvalidArgument,
+		connectErr.Code(),
+		"Empty name should return InvalidArgument",
+	)
+
+	// === Step 11: Test validation - empty namespace name on delete ===
+	_, err = ta.namespaceClient.DeleteNamespace(ctx, &namespacesv1.DeleteNamespaceRequest{
+		Name: "",
+	})
+	require.Error(t, err)
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeInvalidArgument,
+		connectErr.Code(),
+		"Empty name should return InvalidArgument",
+	)
 }

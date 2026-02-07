@@ -2,25 +2,39 @@ syntax = "proto3";
 
 package documents.v1;
 
+// DocumentService provides operations for managing documents.
 service DocumentService {
-  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+  // UpdateDocument updates an existing document's content.
+  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse);
+  // DeleteDocument removes a document from a namespace.
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
 }
 
+// UpdateDocumentRequest contains the data needed to update a document.
 message UpdateDocumentRequest {
+  // document_id is the unique identifier of the document to update.
   string document_id = 1;
+  // content is the new content for the document.
   string content = 2;
 }
 
+// UpdateDocumentResponse contains the updated document information.
+message UpdateDocumentResponse {
+  // document_id is the unique identifier of the document.
+  string document_id = 1;
+  // content is the document's content.
+  string content = 2;
+  // title is the document's title.
+  string title = 3;
+}
+
+// DeleteDocumentRequest contains the information needed to delete a document.
 message DeleteDocumentRequest {
+  // namespace is the name of the namespace containing the document.
   string namespace = 1;
+  // document_id is the unique identifier of the document to delete.
   string document_id = 2;
 }
 
+// DeleteDocumentResponse is returned when a document is successfully deleted.
 message DeleteDocumentResponse {}
-
-message Document {
-  string document_id = 1;
-  string content = 2;
-  string title = 3;
-}

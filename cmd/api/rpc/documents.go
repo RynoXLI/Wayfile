@@ -59,7 +59,7 @@ func (s *DocumentsServiceServer) DeleteDocument(
 func (s *DocumentsServiceServer) UpdateDocument(
 	_ context.Context,
 	_ *documentsv1.UpdateDocumentRequest,
-) (*documentsv1.Document, error) {
+) (*documentsv1.UpdateDocumentResponse, error) {
 	// TODO: Implement update logic
 	return nil, connect.NewError(
 		connect.CodeUnimplemented,

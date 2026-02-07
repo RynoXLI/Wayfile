@@ -21,10 +21,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// UpdateDocumentRequest contains the data needed to update a document.
 type UpdateDocumentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// document_id is the unique identifier of the document to update.
+	DocumentId string `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// content is the new content for the document.
+	Content       string `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,17 +76,84 @@ func (x *UpdateDocumentRequest) GetContent() string {
 	return ""
 }
 
+// UpdateDocumentResponse contains the updated document information.
+type UpdateDocumentResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// document_id is the unique identifier of the document.
+	DocumentId string `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// content is the document's content.
+	Content string `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	// title is the document's title.
+	Title         string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDocumentResponse) Reset() {
+	*x = UpdateDocumentResponse{}
+	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDocumentResponse) ProtoMessage() {}
+
+func (x *UpdateDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDocumentResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *UpdateDocumentResponse) GetDocumentId() string {
+	if x != nil {
+		return x.DocumentId
+	}
+	return ""
+}
+
+func (x *UpdateDocumentResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *UpdateDocumentResponse) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+// DeleteDocumentRequest contains the information needed to delete a document.
 type DeleteDocumentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// namespace is the name of the namespace containing the document.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// document_id is the unique identifier of the document to delete.
+	DocumentId    string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteDocumentRequest) Reset() {
 	*x = DeleteDocumentRequest{}
-	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	mi := &file_documents_v1_documents_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +165,7 @@ func (x *DeleteDocumentRequest) String() string {
 func (*DeleteDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_documents_v1_documents_proto_msgTypes[1]
+	mi := &file_documents_v1_documents_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -108,7 +178,7 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_documents_v1_documents_proto_rawDescGZIP(), []int{1}
+	return file_documents_v1_documents_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DeleteDocumentRequest) GetNamespace() string {
@@ -125,6 +195,7 @@ func (x *DeleteDocumentRequest) GetDocumentId() string {
 	return ""
 }
 
+// DeleteDocumentResponse is returned when a document is successfully deleted.
 type DeleteDocumentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -133,7 +204,7 @@ type DeleteDocumentResponse struct {
 
 func (x *DeleteDocumentResponse) Reset() {
 	*x = DeleteDocumentResponse{}
-	mi := &file_documents_v1_documents_proto_msgTypes[2]
+	mi := &file_documents_v1_documents_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -145,7 +216,7 @@ func (x *DeleteDocumentResponse) String() string {
 func (*DeleteDocumentResponse) ProtoMessage() {}
 
 func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_documents_v1_documents_proto_msgTypes[2]
+	mi := &file_documents_v1_documents_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -158,67 +229,7 @@ func (x *DeleteDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_documents_v1_documents_proto_rawDescGZIP(), []int{2}
-}
-
-type Document struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DocumentId    string                 `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Document) Reset() {
-	*x = Document{}
-	mi := &file_documents_v1_documents_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Document) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Document) ProtoMessage() {}
-
-func (x *Document) ProtoReflect() protoreflect.Message {
-	mi := &file_documents_v1_documents_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Document.ProtoReflect.Descriptor instead.
-func (*Document) Descriptor() ([]byte, []int) {
 	return file_documents_v1_documents_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *Document) GetDocumentId() string {
-	if x != nil {
-		return x.DocumentId
-	}
-	return ""
-}
-
-func (x *Document) GetContent() string {
-	if x != nil {
-		return x.Content
-	}
-	return ""
-}
-
-func (x *Document) GetTitle() string {
-	if x != nil {
-		return x.Title
-	}
-	return ""
 }
 
 var File_documents_v1_documents_proto protoreflect.FileDescriptor
@@ -229,19 +240,19 @@ const file_documents_v1_documents_proto_rawDesc = "" +
 	"\x15UpdateDocumentRequest\x12\x1f\n" +
 	"\vdocument_id\x18\x01 \x01(\tR\n" +
 	"documentId\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"V\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"i\n" +
+	"\x16UpdateDocumentResponse\x12\x1f\n" +
+	"\vdocument_id\x18\x01 \x01(\tR\n" +
+	"documentId\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\"V\n" +
 	"\x15DeleteDocumentRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
 	"documentId\"\x18\n" +
-	"\x16DeleteDocumentResponse\"[\n" +
-	"\bDocument\x12\x1f\n" +
-	"\vdocument_id\x18\x01 \x01(\tR\n" +
-	"documentId\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\x12\x14\n" +
-	"\x05title\x18\x03 \x01(\tR\x05title2\xbd\x01\n" +
-	"\x0fDocumentService\x12M\n" +
-	"\x0eUpdateDocument\x12#.documents.v1.UpdateDocumentRequest\x1a\x16.documents.v1.Document\x12[\n" +
+	"\x16DeleteDocumentResponse2\xcb\x01\n" +
+	"\x0fDocumentService\x12[\n" +
+	"\x0eUpdateDocument\x12#.documents.v1.UpdateDocumentRequest\x1a$.documents.v1.UpdateDocumentResponse\x12[\n" +
 	"\x0eDeleteDocument\x12#.documents.v1.DeleteDocumentRequest\x1a$.documents.v1.DeleteDocumentResponseB\xaf\x01\n" +
 	"\x10com.documents.v1B\x0eDocumentsProtoP\x01Z:github.com/RynoXLI/Wayfile/gen/go/documents/v1;documentsv1\xa2\x02\x03DXX\xaa\x02\fDocuments.V1\xca\x02\fDocuments\\V1\xe2\x02\x18Documents\\V1\\GPBMetadata\xea\x02\rDocuments::V1b\x06proto3"
 
@@ -260,15 +271,15 @@ func file_documents_v1_documents_proto_rawDescGZIP() []byte {
 var file_documents_v1_documents_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_documents_v1_documents_proto_goTypes = []any{
 	(*UpdateDocumentRequest)(nil),  // 0: documents.v1.UpdateDocumentRequest
-	(*DeleteDocumentRequest)(nil),  // 1: documents.v1.DeleteDocumentRequest
-	(*DeleteDocumentResponse)(nil), // 2: documents.v1.DeleteDocumentResponse
-	(*Document)(nil),               // 3: documents.v1.Document
+	(*UpdateDocumentResponse)(nil), // 1: documents.v1.UpdateDocumentResponse
+	(*DeleteDocumentRequest)(nil),  // 2: documents.v1.DeleteDocumentRequest
+	(*DeleteDocumentResponse)(nil), // 3: documents.v1.DeleteDocumentResponse
 }
 var file_documents_v1_documents_proto_depIdxs = []int32{
 	0, // 0: documents.v1.DocumentService.UpdateDocument:input_type -> documents.v1.UpdateDocumentRequest
-	1, // 1: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
-	3, // 2: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.Document
-	2, // 3: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
+	2, // 1: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
+	1, // 2: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.UpdateDocumentResponse
+	3, // 3: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

@@ -26,16 +26,12 @@ tasks:
     cmds:
       - go mod tidy
 
-  fmt:
-    desc: Format Go code
-    cmds:
-      - golangci-lint fmt
-
   lint:
     desc: Run linters
-    deps:
-      - fmt
     cmds:
+      - go tool buf format -w
+      - go tool buf lint
+      - golangci-lint fmt
       - golangci-lint run
 
   lint-fix:

@@ -221,3 +221,17 @@ func (s *Storage) Delete(ctx context.Context,
 	}
 	return nil
 }
+
+// func (s *Storage) AddTags(ctx context.Context, namespace string, documentID string, tags []string) error {
+// 	doc, err := s.validateDocument(ctx, namespace, documentID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	var pgDocID pgtype.UUID
+// 	_ = pgDocID.Scan(documentID)
+
+// 	for _, tag := range tags {
+// 		s.queries.AssociateTag(ctx, pgDocID, )
+// 	}
+// 	return nil

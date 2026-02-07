@@ -21,6 +21,7 @@ CREATE TABLE documents (
     page_count INT,
     attributes JSONB, -- global attributes
     attributes_version BIGINT, -- version of the attributes schema
+    attributes_metadata JSONB DEFAULT '{}'::jsonb, -- provenance metadata for attributes
 
     -- Record metadata
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -49,6 +50,7 @@ CREATE TABLE document_tags (
     tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     attributes JSONB, -- tag specific attributes
     attributes_version BIGINT, -- version of the attributes schema
+    attributes_metadata JSONB DEFAULT '{}'::jsonb, -- provenance metadata for attributes
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (document_id, tag_id)

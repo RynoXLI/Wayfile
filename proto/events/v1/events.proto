@@ -2,9 +2,14 @@ syntax = "proto3";
 
 package events.v1;
 
+// DocumentUploadedEvent is published when a document is successfully uploaded.
 message DocumentUploadedEvent {
+  // document_id is the unique identifier of the uploaded document.
   string document_id = 1;
+  // namespace_id is the unique identifier of the namespace containing the document.
   string namespace_id = 2;
+  // filename is the original name of the uploaded file.
   string filename = 3;
+  // mime_type is the MIME type of the uploaded file.
   string mime_type = 4;
 }
