@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/danielgtaylor/huma/v2"
@@ -304,6 +305,9 @@ func TestUploadDocument(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("Upload failed with status %d: %s", w.Code, w.Body.String())
 	}
+	
+	// Verify correct status code (201 Created, not 200 OK)
+	require.Equal(t, http.StatusCreated, w.Code, "Upload should return 201 Created")
 
 	var uploadResponse DocumentResponse
 	err = json.NewDecoder(w.Body).Decode(&uploadResponse)
@@ -312,6 +316,8 @@ func TestUploadDocument(t *testing.T) {
 	require.NotEmpty(t, uploadResponse.ID, "Document ID should not be empty")
 	require.Equal(t, "test.txt", uploadResponse.FileName, "Filename should match")
 	require.NotEmpty(t, uploadResponse.ChecksumSHA, "Checksum should not be empty")
+	require.NotEmpty(t, uploadResponse.DownloadURL, "Download URL should be present")
+	require.Contains(t, uploadResponse.DownloadURL, "token=", "Download URL should contain token")
 
 	documentID := uploadResponse.ID
 
@@ -340,6 +346,25 @@ func TestUploadDocument(t *testing.T) {
 		downloadedContent,
 		"Downloaded content should match uploaded content",
 	)
+
+	// === Step 2b: Test pre-signed download URL with token ===
+	req = httptest.NewRequest(http.MethodGet, uploadResponse.DownloadURL, nil)
+	w = httptest.NewRecorder()
+	ta.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code, "Download with valid token should succeed")
+	require.Equal(t, fileContent, w.Body.Bytes(), "Token download content should match")
+
+	// Test token with wrong namespace UUID should fail
+	wrongNsUUID := uuid.New().String()
+	wrongToken := ta.app.signer.GenerateToken(wrongNsUUID, documentID, 1*time.Hour)
+	req = httptest.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/ns/test-namespace/documents/%s?token=%s", documentID, wrongToken),
+		nil,
+	)
+	w = httptest.NewRecorder()
+	ta.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code, "Token with wrong namespace UUID should be rejected")
 
 	// === Step 3: Try to upload the same file again (should get 409 Conflict) ===
 	body = &bytes.Buffer{}

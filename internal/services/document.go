@@ -95,14 +95,3 @@ func (s *DocumentService) DeleteDocument(
 ) error {
 	return s.storage.Delete(ctx, namespace, documentID)
 }
-
-// GenerateDownloadURL creates a pre-signed download URL for a document
-func (s *DocumentService) GenerateDownloadURL(
-	namespace string,
-	documentID string,
-	ttl time.Duration,
-) string {
-	token := s.signer.GenerateToken(namespace, documentID, ttl)
-	return fmt.Sprintf("%s/api/v1/ns/%s/documents/%s?token=%s",
-		s.baseURL, namespace, documentID, token)
-}
