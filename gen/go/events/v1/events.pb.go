@@ -26,8 +26,8 @@ type DocumentUploadedEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// document_id is the unique identifier of the uploaded document.
 	DocumentId string `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	// namespace_id is the unique identifier of the namespace containing the document.
-	NamespaceId string `protobuf:"bytes,2,opt,name=namespace_id,json=namespaceId,proto3" json:"namespace_id,omitempty"`
+	// namespace is the name of the namespace containing the document.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// filename is the original name of the uploaded file.
 	Filename string `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
 	// mime_type is the MIME type of the uploaded file.
@@ -73,9 +73,9 @@ func (x *DocumentUploadedEvent) GetDocumentId() string {
 	return ""
 }
 
-func (x *DocumentUploadedEvent) GetNamespaceId() string {
+func (x *DocumentUploadedEvent) GetNamespace() string {
 	if x != nil {
-		return x.NamespaceId
+		return x.Namespace
 	}
 	return ""
 }
@@ -94,13 +94,13 @@ func (x *DocumentUploadedEvent) GetMimeType() string {
 	return ""
 }
 
-// TagSchemaChangedEvent is published when a tag's attribute schema changes.
-type TagSchemaChangedEvent struct {
+// SchemaChangedEvent is published when a tag's attribute schema or document schema changes.
+type SchemaChangedEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// namespace is the name of the namespace containing the tag.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// tag is the name of the tag.
-	Tag string `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	// tag_path is the full path of the tag (empty for document global schema).
+	TagPath string `protobuf:"bytes,2,opt,name=tag_path,json=tagPath,proto3" json:"tag_path,omitempty"`
 	// old_json_schema is the previous JSON Schema definition (empty if first schema).
 	OldJsonSchema string `protobuf:"bytes,3,opt,name=old_json_schema,json=oldJsonSchema,proto3" json:"old_json_schema,omitempty"`
 	// new_json_schema is the new JSON Schema definition.
@@ -109,20 +109,20 @@ type TagSchemaChangedEvent struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TagSchemaChangedEvent) Reset() {
-	*x = TagSchemaChangedEvent{}
+func (x *SchemaChangedEvent) Reset() {
+	*x = SchemaChangedEvent{}
 	mi := &file_events_v1_events_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TagSchemaChangedEvent) String() string {
+func (x *SchemaChangedEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TagSchemaChangedEvent) ProtoMessage() {}
+func (*SchemaChangedEvent) ProtoMessage() {}
 
-func (x *TagSchemaChangedEvent) ProtoReflect() protoreflect.Message {
+func (x *SchemaChangedEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_events_v1_events_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -134,33 +134,33 @@ func (x *TagSchemaChangedEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TagSchemaChangedEvent.ProtoReflect.Descriptor instead.
-func (*TagSchemaChangedEvent) Descriptor() ([]byte, []int) {
+// Deprecated: Use SchemaChangedEvent.ProtoReflect.Descriptor instead.
+func (*SchemaChangedEvent) Descriptor() ([]byte, []int) {
 	return file_events_v1_events_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TagSchemaChangedEvent) GetNamespace() string {
+func (x *SchemaChangedEvent) GetNamespace() string {
 	if x != nil {
 		return x.Namespace
 	}
 	return ""
 }
 
-func (x *TagSchemaChangedEvent) GetTag() string {
+func (x *SchemaChangedEvent) GetTagPath() string {
 	if x != nil {
-		return x.Tag
+		return x.TagPath
 	}
 	return ""
 }
 
-func (x *TagSchemaChangedEvent) GetOldJsonSchema() string {
+func (x *SchemaChangedEvent) GetOldJsonSchema() string {
 	if x != nil {
 		return x.OldJsonSchema
 	}
 	return ""
 }
 
-func (x *TagSchemaChangedEvent) GetNewJsonSchema() string {
+func (x *SchemaChangedEvent) GetNewJsonSchema() string {
 	if x != nil {
 		return x.NewJsonSchema
 	}
@@ -253,16 +253,16 @@ var File_events_v1_events_proto protoreflect.FileDescriptor
 
 const file_events_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"\x16events/v1/events.proto\x12\tevents.v1\"\x94\x01\n" +
+	"\x16events/v1/events.proto\x12\tevents.v1\"\x8f\x01\n" +
 	"\x15DocumentUploadedEvent\x12\x1f\n" +
 	"\vdocument_id\x18\x01 \x01(\tR\n" +
-	"documentId\x12!\n" +
-	"\fnamespace_id\x18\x02 \x01(\tR\vnamespaceId\x12\x1a\n" +
+	"documentId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
 	"\bfilename\x18\x03 \x01(\tR\bfilename\x12\x1b\n" +
-	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"\x97\x01\n" +
-	"\x15TagSchemaChangedEvent\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x10\n" +
-	"\x03tag\x18\x02 \x01(\tR\x03tag\x12&\n" +
+	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"\x9d\x01\n" +
+	"\x12SchemaChangedEvent\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x19\n" +
+	"\btag_path\x18\x02 \x01(\tR\atagPath\x12&\n" +
 	"\x0fold_json_schema\x18\x03 \x01(\tR\roldJsonSchema\x12&\n" +
 	"\x0fnew_json_schema\x18\x04 \x01(\tR\rnewJsonSchema\"\xa9\x01\n" +
 	"\x11TagExtractedEvent\x12\x1f\n" +
@@ -292,7 +292,7 @@ func file_events_v1_events_proto_rawDescGZIP() []byte {
 var file_events_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_events_v1_events_proto_goTypes = []any{
 	(*DocumentUploadedEvent)(nil), // 0: events.v1.DocumentUploadedEvent
-	(*TagSchemaChangedEvent)(nil), // 1: events.v1.TagSchemaChangedEvent
+	(*SchemaChangedEvent)(nil),    // 1: events.v1.SchemaChangedEvent
 	(*TagExtractedEvent)(nil),     // 2: events.v1.TagExtractedEvent
 }
 var file_events_v1_events_proto_depIdxs = []int32{

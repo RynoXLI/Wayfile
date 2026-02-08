@@ -45,6 +45,15 @@ const (
 	// DocumentServiceRemoveTagFromDocumentProcedure is the fully-qualified name of the
 	// DocumentService's RemoveTagFromDocument RPC.
 	DocumentServiceRemoveTagFromDocumentProcedure = "/documents.v1.DocumentService/RemoveTagFromDocument"
+	// DocumentServiceListDocumentTagsProcedure is the fully-qualified name of the DocumentService's
+	// ListDocumentTags RPC.
+	DocumentServiceListDocumentTagsProcedure = "/documents.v1.DocumentService/ListDocumentTags"
+	// DocumentServiceGetDocumentAttributesProcedure is the fully-qualified name of the
+	// DocumentService's GetDocumentAttributes RPC.
+	DocumentServiceGetDocumentAttributesProcedure = "/documents.v1.DocumentService/GetDocumentAttributes"
+	// DocumentServiceUpdateDocumentAttributesProcedure is the fully-qualified name of the
+	// DocumentService's UpdateDocumentAttributes RPC.
+	DocumentServiceUpdateDocumentAttributesProcedure = "/documents.v1.DocumentService/UpdateDocumentAttributes"
 )
 
 // DocumentServiceClient is a client for the documents.v1.DocumentService service.
@@ -57,6 +66,12 @@ type DocumentServiceClient interface {
 	AddTagToDocument(context.Context, *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error)
 	// RemoveTagFromDocument removes a tag association from a document.
 	RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error)
+	// ListDocumentTags retrieves all tags associated with a document.
+	ListDocumentTags(context.Context, *v1.ListDocumentTagsRequest) (*v1.ListDocumentTagsResponse, error)
+	// GetDocumentAttributes retrieves attributes for a document (global) or specific tag.
+	GetDocumentAttributes(context.Context, *v1.GetDocumentAttributesRequest) (*v1.GetDocumentAttributesResponse, error)
+	// UpdateDocumentAttributes updates attributes for a document (global) or specific tag.
+	UpdateDocumentAttributes(context.Context, *v1.UpdateDocumentAttributesRequest) (*v1.UpdateDocumentAttributesResponse, error)
 }
 
 // NewDocumentServiceClient constructs a client for the documents.v1.DocumentService service. By
@@ -94,15 +109,36 @@ func NewDocumentServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(documentServiceMethods.ByName("RemoveTagFromDocument")),
 			connect.WithClientOptions(opts...),
 		),
+		listDocumentTags: connect.NewClient[v1.ListDocumentTagsRequest, v1.ListDocumentTagsResponse](
+			httpClient,
+			baseURL+DocumentServiceListDocumentTagsProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("ListDocumentTags")),
+			connect.WithClientOptions(opts...),
+		),
+		getDocumentAttributes: connect.NewClient[v1.GetDocumentAttributesRequest, v1.GetDocumentAttributesResponse](
+			httpClient,
+			baseURL+DocumentServiceGetDocumentAttributesProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("GetDocumentAttributes")),
+			connect.WithClientOptions(opts...),
+		),
+		updateDocumentAttributes: connect.NewClient[v1.UpdateDocumentAttributesRequest, v1.UpdateDocumentAttributesResponse](
+			httpClient,
+			baseURL+DocumentServiceUpdateDocumentAttributesProcedure,
+			connect.WithSchema(documentServiceMethods.ByName("UpdateDocumentAttributes")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // documentServiceClient implements DocumentServiceClient.
 type documentServiceClient struct {
-	updateDocument        *connect.Client[v1.UpdateDocumentRequest, v1.UpdateDocumentResponse]
-	deleteDocument        *connect.Client[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse]
-	addTagToDocument      *connect.Client[v1.AddTagToDocumentRequest, v1.AddTagToDocumentResponse]
-	removeTagFromDocument *connect.Client[v1.RemoveTagFromDocumentRequest, v1.RemoveTagFromDocumentResponse]
+	updateDocument           *connect.Client[v1.UpdateDocumentRequest, v1.UpdateDocumentResponse]
+	deleteDocument           *connect.Client[v1.DeleteDocumentRequest, v1.DeleteDocumentResponse]
+	addTagToDocument         *connect.Client[v1.AddTagToDocumentRequest, v1.AddTagToDocumentResponse]
+	removeTagFromDocument    *connect.Client[v1.RemoveTagFromDocumentRequest, v1.RemoveTagFromDocumentResponse]
+	listDocumentTags         *connect.Client[v1.ListDocumentTagsRequest, v1.ListDocumentTagsResponse]
+	getDocumentAttributes    *connect.Client[v1.GetDocumentAttributesRequest, v1.GetDocumentAttributesResponse]
+	updateDocumentAttributes *connect.Client[v1.UpdateDocumentAttributesRequest, v1.UpdateDocumentAttributesResponse]
 }
 
 // UpdateDocument calls documents.v1.DocumentService.UpdateDocument.
@@ -141,6 +177,33 @@ func (c *documentServiceClient) RemoveTagFromDocument(ctx context.Context, req *
 	return nil, err
 }
 
+// ListDocumentTags calls documents.v1.DocumentService.ListDocumentTags.
+func (c *documentServiceClient) ListDocumentTags(ctx context.Context, req *v1.ListDocumentTagsRequest) (*v1.ListDocumentTagsResponse, error) {
+	response, err := c.listDocumentTags.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
+// GetDocumentAttributes calls documents.v1.DocumentService.GetDocumentAttributes.
+func (c *documentServiceClient) GetDocumentAttributes(ctx context.Context, req *v1.GetDocumentAttributesRequest) (*v1.GetDocumentAttributesResponse, error) {
+	response, err := c.getDocumentAttributes.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
+// UpdateDocumentAttributes calls documents.v1.DocumentService.UpdateDocumentAttributes.
+func (c *documentServiceClient) UpdateDocumentAttributes(ctx context.Context, req *v1.UpdateDocumentAttributesRequest) (*v1.UpdateDocumentAttributesResponse, error) {
+	response, err := c.updateDocumentAttributes.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
 // DocumentServiceHandler is an implementation of the documents.v1.DocumentService service.
 type DocumentServiceHandler interface {
 	// UpdateDocument updates an existing document's content.
@@ -151,6 +214,12 @@ type DocumentServiceHandler interface {
 	AddTagToDocument(context.Context, *v1.AddTagToDocumentRequest) (*v1.AddTagToDocumentResponse, error)
 	// RemoveTagFromDocument removes a tag association from a document.
 	RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error)
+	// ListDocumentTags retrieves all tags associated with a document.
+	ListDocumentTags(context.Context, *v1.ListDocumentTagsRequest) (*v1.ListDocumentTagsResponse, error)
+	// GetDocumentAttributes retrieves attributes for a document (global) or specific tag.
+	GetDocumentAttributes(context.Context, *v1.GetDocumentAttributesRequest) (*v1.GetDocumentAttributesResponse, error)
+	// UpdateDocumentAttributes updates attributes for a document (global) or specific tag.
+	UpdateDocumentAttributes(context.Context, *v1.UpdateDocumentAttributesRequest) (*v1.UpdateDocumentAttributesResponse, error)
 }
 
 // NewDocumentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -184,6 +253,24 @@ func NewDocumentServiceHandler(svc DocumentServiceHandler, opts ...connect.Handl
 		connect.WithSchema(documentServiceMethods.ByName("RemoveTagFromDocument")),
 		connect.WithHandlerOptions(opts...),
 	)
+	documentServiceListDocumentTagsHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceListDocumentTagsProcedure,
+		svc.ListDocumentTags,
+		connect.WithSchema(documentServiceMethods.ByName("ListDocumentTags")),
+		connect.WithHandlerOptions(opts...),
+	)
+	documentServiceGetDocumentAttributesHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceGetDocumentAttributesProcedure,
+		svc.GetDocumentAttributes,
+		connect.WithSchema(documentServiceMethods.ByName("GetDocumentAttributes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	documentServiceUpdateDocumentAttributesHandler := connect.NewUnaryHandlerSimple(
+		DocumentServiceUpdateDocumentAttributesProcedure,
+		svc.UpdateDocumentAttributes,
+		connect.WithSchema(documentServiceMethods.ByName("UpdateDocumentAttributes")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/documents.v1.DocumentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DocumentServiceUpdateDocumentProcedure:
@@ -194,6 +281,12 @@ func NewDocumentServiceHandler(svc DocumentServiceHandler, opts ...connect.Handl
 			documentServiceAddTagToDocumentHandler.ServeHTTP(w, r)
 		case DocumentServiceRemoveTagFromDocumentProcedure:
 			documentServiceRemoveTagFromDocumentHandler.ServeHTTP(w, r)
+		case DocumentServiceListDocumentTagsProcedure:
+			documentServiceListDocumentTagsHandler.ServeHTTP(w, r)
+		case DocumentServiceGetDocumentAttributesProcedure:
+			documentServiceGetDocumentAttributesHandler.ServeHTTP(w, r)
+		case DocumentServiceUpdateDocumentAttributesProcedure:
+			documentServiceUpdateDocumentAttributesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -217,4 +310,16 @@ func (UnimplementedDocumentServiceHandler) AddTagToDocument(context.Context, *v1
 
 func (UnimplementedDocumentServiceHandler) RemoveTagFromDocument(context.Context, *v1.RemoveTagFromDocumentRequest) (*v1.RemoveTagFromDocumentResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.RemoveTagFromDocument is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) ListDocumentTags(context.Context, *v1.ListDocumentTagsRequest) (*v1.ListDocumentTagsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.ListDocumentTags is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) GetDocumentAttributes(context.Context, *v1.GetDocumentAttributesRequest) (*v1.GetDocumentAttributesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.GetDocumentAttributes is not implemented"))
+}
+
+func (UnimplementedDocumentServiceHandler) UpdateDocumentAttributes(context.Context, *v1.UpdateDocumentAttributesRequest) (*v1.UpdateDocumentAttributesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("documents.v1.DocumentService.UpdateDocumentAttributes is not implemented"))
 }

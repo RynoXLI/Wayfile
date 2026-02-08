@@ -3,6 +3,6 @@ package events
 // Event subjects
 const (
 	DocumentUploaded = "documents.uploaded"
-	TagSchemaChanged = "tags.schema.changed"
+	SchemaChanged    = "schema.changed"
 	TagExtracted     = "tags.extracted"
 )

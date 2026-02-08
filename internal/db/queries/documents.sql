@@ -41,6 +41,7 @@ UPDATE documents SET
     mime_type = COALESCE($5, mime_type),
     file_size = COALESCE($6, file_size),
     attributes = COALESCE($7, attributes),
+    attributes_metadata = COALESCE($8, attributes_metadata),
     modified_at = NOW()
 WHERE id = $1
 RETURNING *;

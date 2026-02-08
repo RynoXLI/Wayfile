@@ -185,12 +185,13 @@ UPDATE documents SET
     mime_type = COALESCE($5, mime_type),
     file_size = COALESCE($6, file_size),
     attributes = COALESCE($7, attributes),
+    attributes_metadata = COALESCE($8, attributes_metadata),
     modified_at = NOW()
 WHERE id = $1
 RETURNING id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at
 `
 
-func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error) {
+func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte, attributesMetadata []byte) (Document, error) {
 	row := q.db.QueryRow(ctx, updateDocument,
 		iD,
 		fileName,
@@ -199,6 +200,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName s
 		mimeType,
 		fileSize,
 		attributes,
+		attributesMetadata,
 	)
 	var i Document
 	err := row.Scan(

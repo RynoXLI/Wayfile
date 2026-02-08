@@ -422,9 +422,9 @@ func (s *TagService) CreateTag(
 		result.Schema = &schema
 
 		// Publish schema created event
-		_ = s.publisher.TagSchemaChanged(&eventsv1.TagSchemaChangedEvent{
+		_ = s.publisher.SchemaChanged(&eventsv1.SchemaChangedEvent{
 			Namespace:     namespace.Name,
-			Tag:           tag.Name,
+			TagPath:       tag.Path,
 			OldJsonSchema: "",
 			NewJsonSchema: *jsonSchema,
 		})
@@ -630,9 +630,9 @@ func (s *TagService) UpdateTag(
 			result.Schema = &newSchema
 
 			// Publish schema changed event
-			_ = s.publisher.TagSchemaChanged(&eventsv1.TagSchemaChangedEvent{
+			_ = s.publisher.SchemaChanged(&eventsv1.SchemaChangedEvent{
 				Namespace:     namespace.Name,
-				Tag:           tag.Name,
+				TagPath:       tag.Path,
 				OldJsonSchema: oldSchemaStr,
 				NewJsonSchema: *jsonSchema,
 			})

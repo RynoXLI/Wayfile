@@ -13,6 +13,12 @@ FROM tags t
 JOIN document_tags dt ON t.id = dt.tag_id
 WHERE dt.document_id = $1;
 
+-- name: GetDocumentTagsWithAttributes :many
+SELECT t.id, t.namespace_id, t.name, t.path, dt.attributes, dt.attributes_metadata, dt.modified_at
+FROM tags t
+JOIN document_tags dt ON t.id = dt.tag_id
+WHERE dt.document_id = $1;
+
 ----------- Tag-specific attributes -----------
 
 -- name: GetDocumentTagAttributes :one

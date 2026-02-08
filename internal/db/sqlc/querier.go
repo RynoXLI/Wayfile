@@ -24,6 +24,7 @@ type Querier interface {
 	//--------- Tag-specific attributes -----------
 	GetDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) (GetDocumentTagAttributesRow, error)
 	GetDocumentTags(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsRow, error)
+	GetDocumentTagsWithAttributes(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsWithAttributesRow, error)
 	GetDocumentsByChecksum(ctx context.Context, checksumSha256 string) ([]Document, error)
 	GetDocumentsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Document, error)
 	GetLatestSchemaByTagID(ctx context.Context, tagID pgtype.UUID) (AttributeSchema, error)
@@ -36,7 +37,7 @@ type Querier interface {
 	GetTagByPath(ctx context.Context, namespaceID pgtype.UUID, path string) (Tag, error)
 	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error)
 	RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
-	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error)
+	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte, attributesMetadata []byte) (Document, error)
 	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 }

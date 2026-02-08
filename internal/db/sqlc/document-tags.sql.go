@@ -86,6 +86,51 @@ func (q *Queries) GetDocumentTags(ctx context.Context, documentID pgtype.UUID) (
 	return items, nil
 }
 
+const getDocumentTagsWithAttributes = `-- name: GetDocumentTagsWithAttributes :many
+SELECT t.id, t.namespace_id, t.name, t.path, dt.attributes, dt.attributes_metadata, dt.modified_at
+FROM tags t
+JOIN document_tags dt ON t.id = dt.tag_id
+WHERE dt.document_id = $1
+`
+
+type GetDocumentTagsWithAttributesRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	NamespaceID        pgtype.UUID        `json:"namespace_id"`
+	Name               string             `json:"name"`
+	Path               string             `json:"path"`
+	Attributes         []byte             `json:"attributes"`
+	AttributesMetadata []byte             `json:"attributes_metadata"`
+	ModifiedAt         pgtype.Timestamptz `json:"modified_at"`
+}
+
+func (q *Queries) GetDocumentTagsWithAttributes(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsWithAttributesRow, error) {
+	rows, err := q.db.Query(ctx, getDocumentTagsWithAttributes, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDocumentTagsWithAttributesRow{}
+	for rows.Next() {
+		var i GetDocumentTagsWithAttributesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NamespaceID,
+			&i.Name,
+			&i.Path,
+			&i.Attributes,
+			&i.AttributesMetadata,
+			&i.ModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeDocumentTag = `-- name: RemoveDocumentTag :exec
 DELETE FROM document_tags
 WHERE document_id = $1 AND tag_id = $2

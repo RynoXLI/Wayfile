@@ -11,7 +11,7 @@ import (
 // Publisher defines the interface for publishing events
 type Publisher interface {
 	DocumentUploaded(event *eventsv1.DocumentUploadedEvent) error
-	TagSchemaChanged(event *eventsv1.TagSchemaChangedEvent) error
+	SchemaChanged(event *eventsv1.SchemaChangedEvent) error
 	TagExtracted(event *eventsv1.TagExtractedEvent) error
 }
 
@@ -39,9 +39,9 @@ func (p *JetStreamPublisher) DocumentUploaded(event *eventsv1.DocumentUploadedEv
 	return p.publish(DocumentUploaded, event)
 }
 
-// TagSchemaChanged publishes a "tags.schema.changed" event to NATS JetStream
-func (p *JetStreamPublisher) TagSchemaChanged(event *eventsv1.TagSchemaChangedEvent) error {
-	return p.publish(TagSchemaChanged, event)
+// SchemaChanged publishes a "schema.changed" event to NATS JetStream
+func (p *JetStreamPublisher) SchemaChanged(event *eventsv1.SchemaChangedEvent) error {
+	return p.publish(SchemaChanged, event)
 }
 
 // TagExtracted publishes a "tags.extracted" event to NATS JetStream

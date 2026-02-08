@@ -12,6 +12,12 @@ service DocumentService {
   rpc AddTagToDocument(AddTagToDocumentRequest) returns (AddTagToDocumentResponse);
   // RemoveTagFromDocument removes a tag association from a document.
   rpc RemoveTagFromDocument(RemoveTagFromDocumentRequest) returns (RemoveTagFromDocumentResponse);
+  // ListDocumentTags retrieves all tags associated with a document.
+  rpc ListDocumentTags(ListDocumentTagsRequest) returns (ListDocumentTagsResponse);
+  // GetDocumentAttributes retrieves attributes for a document (global) or specific tag.
+  rpc GetDocumentAttributes(GetDocumentAttributesRequest) returns (GetDocumentAttributesResponse);
+  // UpdateDocumentAttributes updates attributes for a document (global) or specific tag.
+  rpc UpdateDocumentAttributes(UpdateDocumentAttributesRequest) returns (UpdateDocumentAttributesResponse);
 }
 
 // UpdateDocumentRequest contains the data needed to update a document.
@@ -71,3 +77,64 @@ message RemoveTagFromDocumentRequest {
 
 // RemoveTagFromDocumentResponse is returned when a tag is successfully removed from a document.
 message RemoveTagFromDocumentResponse {}
+
+// ListDocumentTagsRequest contains the information needed to list tags on a document.
+message ListDocumentTagsRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+}
+
+// DocumentTag represents a tag associated with a document.
+message DocumentTag {
+  // name is the tag name.
+  string name = 1;
+  // tag_path is the full path of the tag.
+  string tag_path = 2;
+  // attributes contains tag-specific attributes as JSON.
+  optional string attributes = 3;
+  // metadata contains information about the tag association (e.g., how it was extracted).
+  optional string metadata = 4;
+  // updated_at is the timestamp when the tag was last updated.
+  string updated_at = 5;
+}
+
+// ListDocumentTagsResponse contains the tags associated with a document.
+message ListDocumentTagsResponse {
+  // tags are the tags associated with the document.
+  repeated DocumentTag tags = 1;
+}
+
+// GetDocumentAttributesRequest contains the information needed to get attributes.
+message GetDocumentAttributesRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag (optional - if empty, gets document global attributes).
+  optional string tag_path = 3;
+}
+
+// GetDocumentAttributesResponse contains the attributes.
+message GetDocumentAttributesResponse {
+  // attributes contains attributes as JSON (tag-specific or document global).
+  optional string attributes = 1;
+  // metadata contains information about the attributes.
+  optional string metadata = 2;
+}
+
+// UpdateDocumentAttributesRequest contains the information needed to update attributes.
+message UpdateDocumentAttributesRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag (optional - if empty, updates document global attributes).
+  optional string tag_path = 3;
+  // attributes is the JSON object containing the new attributes.
+  string attributes = 4;
+}
+
+// UpdateDocumentAttributesResponse is returned when attributes are successfully updated.
+message UpdateDocumentAttributesResponse {}

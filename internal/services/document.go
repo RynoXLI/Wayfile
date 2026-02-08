@@ -102,10 +102,10 @@ func (s *DocumentService) UploadDocument(
 		s.baseURL, namespace, docID, token)
 
 	event := &eventsv1.DocumentUploadedEvent{
-		DocumentId:  docID,
-		NamespaceId: result.NamespaceID,
-		Filename:    filename,
-		MimeType:    mimeType,
+		DocumentId: docID,
+		Namespace:  namespace,
+		Filename:   filename,
+		MimeType:   mimeType,
 	}
 	if err := s.publisher.DocumentUploaded(event); err != nil {
 		return nil, err
@@ -340,6 +340,245 @@ func (s *DocumentService) UpdateAttributeExtractionInfo(
 	)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to update attribute metadata: %v", err)
+	}
+
+	return nil
+}
+
+// ListDocumentTags retrieves all tags associated with a document
+func (s *DocumentService) ListDocumentTags(
+	ctx context.Context,
+	_ string,
+	documentID string,
+) ([]sqlc.GetDocumentTagsWithAttributesRow, error) {
+	// Parse document ID
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid document ID: %v", err)
+	}
+
+	// Convert document ID to pgtype.UUID
+	docPgUUID := pgtype.UUID{Bytes: docUUID, Valid: true}
+
+	// Get document tags with attributes
+	tags, err := s.queries.GetDocumentTagsWithAttributes(ctx, docPgUUID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get document tags: %v", err)
+	}
+
+	return tags, nil
+}
+
+// GetDocumentAttributes retrieves attributes for a document (global) or specific tag
+func (s *DocumentService) GetDocumentAttributes(
+	ctx context.Context,
+	namespace string,
+	documentID string,
+	tagPath string,
+) (*sqlc.GetDocumentTagAttributesRow, error) {
+	// Get namespace ID
+	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "namespace not found: %v", err)
+	}
+
+	// Parse document ID
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid document ID: %v", err)
+	}
+
+	// Convert document ID to pgtype.UUID
+	docPgUUID := pgtype.UUID{Bytes: docUUID, Valid: true}
+
+	if tagPath == "" {
+		// Handle document global attributes
+		document, err := s.queries.GetDocumentByID(ctx, docPgUUID)
+		if err != nil {
+			return nil, status.Errorf(codes.NotFound, "document not found: %v", err)
+		}
+
+		// Convert document attributes to the same structure as tag attributes for consistency
+		result := &sqlc.GetDocumentTagAttributesRow{
+			Attributes:         document.Attributes,
+			AttributesMetadata: document.AttributesMetadata,
+		}
+
+		return result, nil
+	}
+
+	// Handle tag-specific attributes
+	// Get tag by path
+	tag, err := s.queries.GetTagByPath(ctx, ns.ID, tagPath)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "tag not found at path %q: %v", tagPath, err)
+	}
+
+	// Get document tag attributes
+	attributes, err := s.queries.GetDocumentTagAttributes(ctx, docPgUUID, tag.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "document-tag association not found: %v", err)
+	}
+
+	return &attributes, nil
+}
+
+// UpdateDocumentAttributes updates attributes for a document (global) or specific tag
+func (s *DocumentService) UpdateDocumentAttributes(
+	ctx context.Context,
+	namespace string,
+	documentID string,
+	tagPath string,
+	attributesJSON string,
+) error {
+	// Get namespace ID
+	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "namespace not found: %v", err)
+	}
+
+	// Parse document ID
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid document ID: %v", err)
+	}
+
+	// Parse and validate attributes JSON
+	var attributesMap map[string]interface{}
+	if err := json.Unmarshal([]byte(attributesJSON), &attributesMap); err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid attributes JSON: %v", err)
+	}
+
+	// Convert document ID to pgtype.UUID
+	docPgUUID := pgtype.UUID{Bytes: docUUID, Valid: true}
+
+	if tagPath == "" {
+		// Handle document global attributes
+		// TODO: Validate against document schema if it exists
+		// For now, just update the document's global attributes
+
+		// Create metadata for document attributes
+		metadata := DocumentTagMetadata{
+			Tag: AttributeExtractionInfo{
+				Method:      ExtractionMethodManual,
+				ExtractedBy: "api-user",
+				ExtractedAt: time.Now(),
+				Source:      "manual",
+			},
+		}
+
+		// Update extraction info for all attribute fields
+		now := time.Now()
+		metadata.Attributes = make(map[string]AttributeExtractionInfo)
+		for fieldName := range attributesMap {
+			metadata.Attributes[fieldName] = AttributeExtractionInfo{
+				Method:      ExtractionMethodManual,
+				ExtractedBy: "api-user",
+				ExtractedAt: now,
+				Source:      "manual",
+			}
+		}
+
+		// Marshal metadata
+		metadataJSON, err := json.Marshal(metadata)
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal metadata: %v", err)
+		}
+
+		// Update document's global attributes
+		_, err = s.queries.UpdateDocument(
+			ctx,
+			docPgUUID,
+			"",
+			"",
+			pgtype.Date{},
+			"",
+			0,
+			[]byte(attributesJSON),
+			metadataJSON,
+		)
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to update document attributes: %v", err)
+		}
+
+		return nil
+	}
+
+	// Handle tag-specific attributes
+	// Get tag by path
+	tag, err := s.queries.GetTagByPath(ctx, ns.ID, tagPath)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "tag not found at path %q: %v", tagPath, err)
+	}
+
+	// Validate attributes against tag's schema using TagService
+	if err := s.tagService.ValidateAttributes(ctx, tag.ID, attributesMap); err != nil {
+		return status.Errorf(codes.InvalidArgument, "attribute validation failed: %v", err)
+	}
+
+	// Get current metadata to preserve tag extraction info
+	currentData, err := s.queries.GetDocumentTagAttributes(ctx, docPgUUID, tag.ID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "document-tag association not found: %v", err)
+	}
+
+	// Parse existing metadata
+	var metadata DocumentTagMetadata
+	if len(currentData.AttributesMetadata) > 0 {
+		if err := json.Unmarshal(currentData.AttributesMetadata, &metadata); err != nil {
+			// If we can't parse existing metadata, create new structure
+			metadata = DocumentTagMetadata{
+				Tag: AttributeExtractionInfo{
+					Method:      ExtractionMethodManual,
+					ExtractedBy: "unknown",
+					ExtractedAt: time.Now(),
+					Source:      "manual",
+				},
+			}
+		}
+	} else {
+		// No existing metadata, create new
+		metadata = DocumentTagMetadata{
+			Tag: AttributeExtractionInfo{
+				Method:      ExtractionMethodManual,
+				ExtractedBy: "api-user",
+				ExtractedAt: time.Now(),
+				Source:      "manual",
+			},
+		}
+	}
+
+	// Update extraction info for all attribute fields
+	now := time.Now()
+	if metadata.Attributes == nil {
+		metadata.Attributes = make(map[string]AttributeExtractionInfo)
+	}
+
+	for fieldName := range attributesMap {
+		metadata.Attributes[fieldName] = AttributeExtractionInfo{
+			Method:      ExtractionMethodManual,
+			ExtractedBy: "api-user",
+			ExtractedAt: now,
+			Source:      "manual",
+		}
+	}
+
+	// Marshal updated metadata
+	updatedMetadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to marshal updated metadata: %v", err)
+	}
+
+	// Update the attributes and metadata in the database
+	err = s.queries.UpdateDocumentTagAttributes(
+		ctx,
+		docPgUUID,
+		tag.ID,
+		[]byte(attributesJSON),
+		updatedMetadataJSON,
+	)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to update tag attributes: %v", err)
 	}
 
 	return nil

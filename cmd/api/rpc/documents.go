@@ -4,6 +4,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -162,4 +163,163 @@ func (s *DocumentsServiceServer) RemoveTagFromDocument(
 	}
 
 	return &documentsv1.RemoveTagFromDocumentResponse{}, nil
+}
+
+// ListDocumentTags handles listing all tags on a document via Connect RPC
+func (s *DocumentsServiceServer) ListDocumentTags(
+	ctx context.Context,
+	req *documentsv1.ListDocumentTagsRequest,
+) (*documentsv1.ListDocumentTagsResponse, error) {
+	// Validate required fields
+	if req.Namespace == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
+	}
+	if req.DocumentId == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("document_id is required"),
+		)
+	}
+
+	// Get the document tags
+	tags, err := s.documentService.ListDocumentTags(
+		ctx,
+		req.Namespace,
+		req.DocumentId,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to protobuf response
+	documentTags := make([]*documentsv1.DocumentTag, len(tags))
+	for i, tag := range tags {
+		documentTag := &documentsv1.DocumentTag{
+			Name:    tag.Name,
+			TagPath: tag.Path,
+		}
+
+		// Add attributes if present
+		if len(tag.Attributes) > 0 {
+			attributesStr := string(tag.Attributes)
+			documentTag.Attributes = &attributesStr
+		}
+
+		// Add extraction metadata if present
+		if len(tag.AttributesMetadata) > 0 {
+			metadataStr := string(tag.AttributesMetadata)
+			documentTag.Metadata = &metadataStr
+		}
+
+		// Set updated timestamp
+		documentTag.UpdatedAt = tag.ModifiedAt.Time.Format(time.RFC3339)
+
+		documentTags[i] = documentTag
+	}
+
+	return &documentsv1.ListDocumentTagsResponse{
+		Tags: documentTags,
+	}, nil
+}
+
+// GetDocumentAttributes handles getting attributes for a document (global) or specific tag via Connect RPC
+func (s *DocumentsServiceServer) GetDocumentAttributes(
+	ctx context.Context,
+	req *documentsv1.GetDocumentAttributesRequest,
+) (*documentsv1.GetDocumentAttributesResponse, error) {
+	// Validate required fields
+	if req.Namespace == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
+	}
+	if req.DocumentId == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("document_id is required"),
+		)
+	}
+
+	// tag_path is optional - empty means document global attributes
+	tagPath := ""
+	if req.TagPath != nil {
+		tagPath = *req.TagPath
+	}
+
+	// Get the document attributes
+	attributes, err := s.documentService.GetDocumentAttributes(
+		ctx,
+		req.Namespace,
+		req.DocumentId,
+		tagPath,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &documentsv1.GetDocumentAttributesResponse{}
+
+	// Add attributes if present
+	if len(attributes.Attributes) > 0 {
+		attributesStr := string(attributes.Attributes)
+		response.Attributes = &attributesStr
+	}
+
+	// Add extraction metadata if present
+	if len(attributes.AttributesMetadata) > 0 {
+		metadataStr := string(attributes.AttributesMetadata)
+		response.Metadata = &metadataStr
+	}
+
+	return response, nil
+}
+
+// UpdateDocumentAttributes handles updating attributes for a document (global) or specific tag via Connect RPC
+func (s *DocumentsServiceServer) UpdateDocumentAttributes(
+	ctx context.Context,
+	req *documentsv1.UpdateDocumentAttributesRequest,
+) (*documentsv1.UpdateDocumentAttributesResponse, error) {
+	// Validate required fields
+	if req.Namespace == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("namespace is required"),
+		)
+	}
+	if req.DocumentId == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("document_id is required"),
+		)
+	}
+	if req.Attributes == "" {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("attributes is required"),
+		)
+	}
+
+	// tag_path is optional - empty means document global attributes
+	tagPath := ""
+	if req.TagPath != nil {
+		tagPath = *req.TagPath
+	}
+
+	// Update the attributes
+	err := s.documentService.UpdateDocumentAttributes(
+		ctx,
+		req.Namespace,
+		req.DocumentId,
+		tagPath,
+		req.Attributes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &documentsv1.UpdateDocumentAttributesResponse{}, nil
 }

@@ -552,8 +552,16 @@ func TestDocumentTagAssociation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Note: Tag association verification would be done through a ListDocumentTags API
-	// For now, we trust the AddTagToDocument operation succeeded
+	// Verify tag was added using ListDocumentTags
+	listResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "tag-assoc-test",
+		DocumentId: documentID,
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 1)
+	require.Equal(t, "project", listResp.Tags[0].Name)
+	require.Equal(t, "/project", listResp.Tags[0].TagPath)
+	require.Nil(t, listResp.Tags[0].Attributes) // No attributes provided
 
 	// Remove tag from document
 	_, err = ta.ConnectClient.RemoveTagFromDocument(ctx, &documentsv1.RemoveTagFromDocumentRequest{
@@ -563,8 +571,13 @@ func TestDocumentTagAssociation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Note: Tag removal verification would be done through a ListDocumentTags API
-	// For now, we trust the RemoveTagFromDocument operation succeeded
+	// Verify tag was removed
+	listResp, err = ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "tag-assoc-test",
+		DocumentId: documentID,
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 0)
 }
 
 func TestDocumentTagWithAttributes(t *testing.T) {
@@ -635,8 +648,31 @@ func TestDocumentTagWithAttributes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Note: Attribute verification would be done through a GetDocumentTags API that returns attributes
-	// For now, we trust the AddTagToDocument operation with attributes succeeded
+	// Verify tag was added with correct attributes
+	tagAttrs, err := ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "tag-attr-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/invoice"}[0],
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, tagAttrs.Attributes)
+	require.Equal(t, validAttrs, *tagAttrs.Attributes)
+	require.NotNil(t, tagAttrs.Metadata)
+
+	// Also verify through ListDocumentTags
+	listResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "tag-attr-test",
+		DocumentId: documentID,
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 1)
+	require.Equal(t, "invoice", listResp.Tags[0].Name)
+	require.Equal(t, "/invoice", listResp.Tags[0].TagPath)
+	require.NotNil(t, listResp.Tags[0].Attributes)
+	require.Equal(t, validAttrs, *listResp.Tags[0].Attributes)
 
 	// Remove the tag to test invalid attributes
 	_, err = ta.ConnectClient.RemoveTagFromDocument(ctx, &documentsv1.RemoveTagFromDocumentRequest{
@@ -656,6 +692,194 @@ func TestDocumentTagWithAttributes(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "validation failed")
+}
+
+func TestUpdateDocumentAttributes(t *testing.T) {
+	ta := SetupTestApp(t)
+	defer ta.Cleanup(t)
+
+	ctx := context.Background()
+
+	// Create namespace
+	_, err := ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "update-attrs-test",
+	})
+	require.NoError(t, err)
+
+	// Upload a document
+	fileContent := []byte("Test document for updating tag attributes")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "update-test.txt")
+	require.NoError(t, err)
+	_, err = part.Write(fileContent)
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ns/update-attrs-test/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ta.Router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var uploadResp map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &uploadResp)
+	require.NoError(t, err)
+	documentID := uploadResp["id"].(string)
+
+	// Create a tag with schema
+	schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"type": map[string]interface{}{
+				"type": "string",
+				"enum": []string{"report", "invoice", "receipt"},
+			},
+			"priority": map[string]interface{}{
+				"type":    "integer",
+				"minimum": 1,
+				"maximum": 10,
+			},
+			"description": map[string]interface{}{
+				"type":      "string",
+				"minLength": 1,
+				"maxLength": 500,
+			},
+			"status": map[string]interface{}{
+				"type": "string",
+				"enum": []string{"draft", "review", "approved", "archived"},
+			},
+		},
+		"required": []string{"type", "priority"},
+	}
+	schemaJSON, err := json.Marshal(schema)
+	require.NoError(t, err)
+
+	_, err = ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:   "update-attrs-test",
+		Name:        "category",
+		Description: stringPtr("Category tag for testing updates"),
+		JsonSchema:  stringPtr(string(schemaJSON)),
+	})
+	require.NoError(t, err)
+
+	// Add initial tag with attributes
+	initialAttrs := `{"type": "report", "priority": 1, "description": "initial description"}`
+	_, err = ta.ConnectClient.AddTagToDocument(ctx, &documentsv1.AddTagToDocumentRequest{
+		Namespace:  "update-attrs-test",
+		DocumentId: documentID,
+		TagPath:    "/category",
+		Attributes: &initialAttrs,
+	})
+	require.NoError(t, err)
+
+	// Verify initial attributes
+	getResp, err := ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/category"}[0],
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, initialAttrs, *getResp.Attributes)
+
+	// Update the attributes
+	updatedAttrs := `{"type": "invoice", "priority": 5, "description": "updated description", "status": "review"}`
+	_, err = ta.ConnectClient.UpdateDocumentAttributes(
+		ctx,
+		&documentsv1.UpdateDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/category"}[0],
+			Attributes: updatedAttrs,
+		},
+	)
+	require.NoError(t, err)
+
+	// Verify attributes were updated
+	getResp, err = ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/category"}[0],
+		},
+	)
+	require.NoError(t, err)
+
+	// Parse and compare JSON objects instead of strings (order can vary)
+	var expectedAttrs, actualAttrs map[string]interface{}
+	err = json.Unmarshal([]byte(updatedAttrs), &expectedAttrs)
+	require.NoError(t, err)
+	err = json.Unmarshal([]byte(*getResp.Attributes), &actualAttrs)
+	require.NoError(t, err)
+	require.Equal(t, expectedAttrs, actualAttrs)
+
+	// Verify metadata indicates manual extraction and updated timestamp is present
+	listResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "update-attrs-test",
+		DocumentId: documentID,
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 1)
+	require.NotEmpty(t, listResp.Tags[0].UpdatedAt)
+
+	// Parse and verify extraction method from metadata
+	require.NotNil(t, listResp.Tags[0].Metadata, "metadata should be present after update")
+	var metadata map[string]interface{}
+	err = json.Unmarshal([]byte(*listResp.Tags[0].Metadata), &metadata)
+	require.NoError(t, err)
+
+	// The update operation should set extraction method to manual for the tag
+	tagInfo, ok := metadata["tag"].(map[string]interface{})
+	require.True(t, ok, "metadata should have tag info")
+	require.Equal(t, "manual", tagInfo["extraction_method"])
+
+	// Test updating with invalid attributes (should fail)
+	invalidAttrs := `{"type": "invalid-type", "priority": 15}`
+	_, err = ta.ConnectClient.UpdateDocumentAttributes(
+		ctx,
+		&documentsv1.UpdateDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/category"}[0],
+			Attributes: invalidAttrs,
+		},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "validation failed")
+
+	// Verify original valid attributes are still there (update should have failed)
+	getResp, err = ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/category"}[0],
+		},
+	)
+	require.NoError(t, err)
+
+	// Parse and compare JSON objects
+	var currentAttrs map[string]interface{}
+	err = json.Unmarshal([]byte(*getResp.Attributes), &currentAttrs)
+	require.NoError(t, err)
+	require.Equal(t, expectedAttrs, currentAttrs)
+
+	// Test updating non-existent tag (should fail)
+	_, err = ta.ConnectClient.UpdateDocumentAttributes(
+		ctx,
+		&documentsv1.UpdateDocumentAttributesRequest{
+			Namespace:  "update-attrs-test",
+			DocumentId: documentID,
+			TagPath:    &[]string{"/nonexistent"}[0],
+			Attributes: `{"type": "report", "priority": 1}`,
+		},
+	)
+	require.Error(t, err)
 }
 
 func stringPtr(s string) *string {

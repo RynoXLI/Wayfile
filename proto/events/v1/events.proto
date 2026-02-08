@@ -6,20 +6,20 @@ package events.v1;
 message DocumentUploadedEvent {
   // document_id is the unique identifier of the uploaded document.
   string document_id = 1;
-  // namespace_id is the unique identifier of the namespace containing the document.
-  string namespace_id = 2;
+  // namespace is the name of the namespace containing the document.
+  string namespace = 2;
   // filename is the original name of the uploaded file.
   string filename = 3;
   // mime_type is the MIME type of the uploaded file.
   string mime_type = 4;
 }
 
-// TagSchemaChangedEvent is published when a tag's attribute schema changes.
-message TagSchemaChangedEvent {
+// SchemaChangedEvent is published when a tag's attribute schema or document schema changes.
+message SchemaChangedEvent {
   // namespace is the name of the namespace containing the tag.
   string namespace = 1;
-  // tag is the name of the tag.
-  string tag = 2;
+  // tag_path is the full path of the tag (empty for document global schema).
+  string tag_path = 2;
   // old_json_schema is the previous JSON Schema definition (empty if first schema).
   string old_json_schema = 3;
   // new_json_schema is the new JSON Schema definition.
