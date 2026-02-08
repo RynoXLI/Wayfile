@@ -882,6 +882,86 @@ func TestUpdateDocumentAttributes(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestUploadDocumentWithTags(t *testing.T) {
+	ta := SetupTestApp(t)
+	defer ta.Cleanup(t)
+
+	ctx := context.Background()
+
+	// Create namespace
+	_, err := ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "upload-tags-test",
+	})
+	require.NoError(t, err)
+
+	// Create a tag with schema
+	schema := `{
+		"type": "object",
+		"properties": {
+			"amount": {"type": "number"},
+			"date": {"type": "string"}
+		}
+	}`
+	_, err = ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:  "upload-tags-test",
+		Name:       "invoice",
+		JsonSchema: &schema,
+	})
+	require.NoError(t, err)
+
+	// Create upload with tags
+	fileContent := []byte("Test invoice document")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add file
+	h := make(map[string][]string)
+	h["Content-Disposition"] = []string{`form-data; name="file"; filename="invoice.pdf"`}
+	h["Content-Type"] = []string{"application/pdf"}
+	filePart, err := writer.CreatePart(h)
+	require.NoError(t, err)
+	_, err = filePart.Write(fileContent)
+	require.NoError(t, err)
+
+	// Add tags field with attributes
+	tagsJSON := `[{"tag_path":"/invoice","attributes":{"amount":150.50,"date":"2026-02-07"}}]`
+	err = writer.WriteField("tags", tagsJSON)
+	require.NoError(t, err)
+
+	err = writer.Close()
+	require.NoError(t, err)
+
+	// Upload
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ns/upload-tags-test/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ta.Router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code, "Upload should succeed: %s", w.Body.String())
+
+	var uploadResponse DocumentResponse
+	err = json.NewDecoder(w.Body).Decode(&uploadResponse)
+	require.NoError(t, err)
+	require.NotEmpty(t, uploadResponse.ID)
+
+	// Verify tag was added with attributes
+	tagsResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "upload-tags-test",
+		DocumentId: uploadResponse.ID,
+	})
+	require.NoError(t, err)
+	require.Len(t, tagsResp.Tags, 1, "Document should have one tag")
+	require.Equal(t, "/invoice", tagsResp.Tags[0].TagPath)
+
+	// Verify attributes were set
+	require.NotNil(t, tagsResp.Tags[0].Attributes)
+	var attrs map[string]interface{}
+	err = json.Unmarshal([]byte(*tagsResp.Tags[0].Attributes), &attrs)
+	require.NoError(t, err)
+	require.Equal(t, 150.50, attrs["amount"])
+	require.Equal(t, "2026-02-07", attrs["date"])
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

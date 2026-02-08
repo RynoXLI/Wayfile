@@ -138,6 +138,8 @@ paths:
             encoding:
               file:
                 contentType: application/octet-stream
+              tags:
+                contentType: text/plain
             schema:
               properties:
                 file:
@@ -145,6 +147,9 @@ paths:
                   contentMediaType: application/octet-stream
                   description: File to upload
                   format: binary
+                  type: string
+                tags:
+                  description: Optional JSON array of tags with attributes, e.g., [{"tag_path":"/invoice","attributes":{"amount":100}}]
                   type: string
               required:
                 - file

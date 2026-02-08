@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	"github.com/RynoXLI/Wayfile/internal/auth"
+	"github.com/RynoXLI/Wayfile/internal/services"
 	"github.com/RynoXLI/Wayfile/internal/storage"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
@@ -25,6 +27,7 @@ type DocumentUploadInput struct {
 	Namespace string `path:"namespace" maxLength:"255" doc:"Namespace name"`
 	RawBody   huma.MultipartFormFiles[struct {
 		File huma.FormFile `form:"file" required:"true" doc:"File to upload"`
+		Tags string        `form:"tags" required:"false" doc:"Optional JSON array of tags with attributes, e.g., [{\"tag_path\":\"/invoice\",\"attributes\":{\"amount\":100}}]"`
 	}]
 }
 
@@ -122,6 +125,52 @@ func RegisterRoutes(api huma.API, app *App) {
 				"filename", filename,
 			)
 			return nil, huma.Error500InternalServerError("Error uploading the file")
+		}
+
+		// Process tags if provided
+		if formData.Tags != "" {
+			var tagInputs []struct {
+				TagPath    string                 `json:"tag_path"`
+				Attributes map[string]interface{} `json:"attributes,omitempty"`
+			}
+
+			if err := json.Unmarshal([]byte(formData.Tags), &tagInputs); err != nil {
+				app.Logger.Error("Invalid tags JSON", "error", err, "tags", formData.Tags)
+			}
+
+			documentID := result.Document.ID.String()
+			for _, tagInput := range tagInputs {
+				var attributesJSON *string
+				if len(tagInput.Attributes) > 0 {
+					attrBytes, err := json.Marshal(tagInput.Attributes)
+					if err != nil {
+						app.Logger.Error("Failed to marshal tag attributes", "error", err)
+						return nil, huma.Error400BadRequest("Invalid tag attributes")
+					}
+					attrStr := string(attrBytes)
+					attributesJSON = &attrStr
+				}
+
+				// Add tag to document via service
+				err := app.DocumentService.AddTagToDocument(
+					ctx,
+					input.Namespace,
+					documentID,
+					tagInput.TagPath,
+					attributesJSON,
+					services.ExtractionMethodManual,
+					"api-upload",
+				)
+				if err != nil {
+					app.Logger.Error(
+						"Failed to add tag to document",
+						"error", err,
+						"document_id", documentID,
+						"tag_path", tagInput.TagPath,
+					)
+					// Continue with other tags rather than failing the entire upload
+				}
+			}
 		}
 
 		// Create response with download URL
