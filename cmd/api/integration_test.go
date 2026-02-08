@@ -161,8 +161,6 @@ type TestApp struct {
 	Pool            *pgxpool.Pool
 	NC              *nats.Conn
 	TmpDir          string
-	PgContainer     *postgres.PostgresContainer
-	NatsServer      *server.Server
 	ConnectClient   documentsv1connect.DocumentServiceClient
 	NamespaceClient namespacesv1connect.NamespaceServiceClient
 	TagClient       tagsv1connect.TagServiceClient
@@ -348,8 +346,6 @@ func SetupTestApp(t *testing.T) *TestApp {
 		Pool:            pool,
 		NC:              nc,
 		TmpDir:          tmpDir,
-		PgContainer:     nil, // No longer managing container per test
-		NatsServer:      nil, // No longer managing NATS server per test
 		ConnectClient:   connectClient,
 		NamespaceClient: namespaceClient,
 		TagClient:       tagClient,
