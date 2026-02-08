@@ -57,7 +57,8 @@ message AddTagToDocumentRequest {
   string namespace = 1;
   // document_id is the unique identifier of the document.
   string document_id = 2;
-  // tag_path is the full path of the tag to associate (e.g., "backend/api").
+  // tag_path is the full path of the tag to associate (e.g., "/backend/api").
+  // Must include a leading slash.
   string tag_path = 3;
   // attributes is an optional JSON object containing tag-specific attributes.
   // Must conform to the tag's attribute schema if one exists.
@@ -73,7 +74,8 @@ message RemoveTagFromDocumentRequest {
   string namespace = 1;
   // document_id is the unique identifier of the document.
   string document_id = 2;
-  // tag_path is the full path of the tag to remove (e.g., "backend/api").
+  // tag_path is the full path of the tag to remove (e.g., "/backend/api").
+  // Must include a leading slash.
   string tag_path = 3;
 }
 
@@ -115,6 +117,7 @@ message GetDocumentAttributesRequest {
   // document_id is the unique identifier of the document.
   string document_id = 2;
   // tag_path is the full path of the tag (optional - if empty, gets document global attributes).
+  // Must include a leading slash (e.g., "/backend/api").
   optional string tag_path = 3;
 }
 
@@ -133,6 +136,7 @@ message UpdateDocumentAttributesRequest {
   // document_id is the unique identifier of the document.
   string document_id = 2;
   // tag_path is the full path of the tag (optional - if empty, updates document global attributes).
+  // Must include a leading slash (e.g., "/backend/api").
   optional string tag_path = 3;
   // attributes is the JSON object containing the new attributes.
   string attributes = 4;

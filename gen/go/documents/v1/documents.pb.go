@@ -240,7 +240,8 @@ type AddTagToDocumentRequest struct {
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// document_id is the unique identifier of the document.
 	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	// tag_path is the full path of the tag to associate (e.g., "backend/api").
+	// tag_path is the full path of the tag to associate (e.g., "/backend/api").
+	// Must include a leading slash.
 	TagPath string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3" json:"tag_path,omitempty"`
 	// attributes is an optional JSON object containing tag-specific attributes.
 	// Must conform to the tag's attribute schema if one exists.
@@ -351,7 +352,8 @@ type RemoveTagFromDocumentRequest struct {
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// document_id is the unique identifier of the document.
 	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	// tag_path is the full path of the tag to remove (e.g., "backend/api").
+	// tag_path is the full path of the tag to remove (e.g., "/backend/api").
+	// Must include a leading slash.
 	TagPath       string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3" json:"tag_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -636,6 +638,7 @@ type GetDocumentAttributesRequest struct {
 	// document_id is the unique identifier of the document.
 	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
 	// tag_path is the full path of the tag (optional - if empty, gets document global attributes).
+	// Must include a leading slash (e.g., "/backend/api").
 	TagPath       *string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3,oneof" json:"tag_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -755,6 +758,7 @@ type UpdateDocumentAttributesRequest struct {
 	// document_id is the unique identifier of the document.
 	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
 	// tag_path is the full path of the tag (optional - if empty, updates document global attributes).
+	// Must include a leading slash (e.g., "/backend/api").
 	TagPath *string `protobuf:"bytes,3,opt,name=tag_path,json=tagPath,proto3,oneof" json:"tag_path,omitempty"`
 	// attributes is the JSON object containing the new attributes.
 	Attributes    string `protobuf:"bytes,4,opt,name=attributes,proto3" json:"attributes,omitempty"`

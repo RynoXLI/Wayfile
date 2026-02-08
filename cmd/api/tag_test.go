@@ -928,3 +928,62 @@ func TestTagSchemaCreation(t *testing.T) {
 	// Should return CodeInvalidArgument for invalid JSON schema
 	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
+
+// TestTagPathNormalization tests that parent paths are normalized correctly
+// (trailing slashes and repeated slashes are handled)
+func TestTagPathNormalization(t *testing.T) {
+	ta := SetupTestApp(t)
+	ctx := context.Background()
+
+	// === Step 1: Create namespace ===
+	_, err := ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "path-norm-test",
+	})
+	require.NoError(t, err)
+
+	// === Step 2: Create a parent tag ===
+	createResp, err := ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:   "path-norm-test",
+		Name:        "parent",
+		Description: stringPtr("Parent tag"),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/parent", createResp.Tag.Path)
+
+	// === Step 3: Create child with trailing slash in parent path (should normalize) ===
+	childResp1, err := ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:   "path-norm-test",
+		Name:        "child1",
+		Description: stringPtr("Child with trailing slash parent"),
+		ParentPath:  stringPtr("/parent/"), // Trailing slash should be normalized
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/parent/child1", childResp1.Tag.Path)
+
+	// === Step 4: Create child with repeated slashes in parent path (should normalize) ===
+	childResp2, err := ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:   "path-norm-test",
+		Name:        "child2",
+		Description: stringPtr("Child with repeated slashes parent"),
+		ParentPath:  stringPtr("//parent//"), // Repeated slashes should be normalized
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/parent/child2", childResp2.Tag.Path)
+
+	// === Step 5: Update tag with non-normalized parent path (should work) ===
+	updateResp, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
+		Namespace:   "path-norm-test",
+		Path:        "/parent/child1",
+		Description: stringPtr("Updated child1"),
+		ParentPath:  stringPtr("/parent//"), // Should normalize and work
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/parent/child1", updateResp.Tag.Path)
+
+	// === Step 6: Verify all tags were created correctly ===
+	listResp, err := ta.TagClient.ListTags(ctx, &tagsv1.ListTagsRequest{
+		Namespace: "path-norm-test",
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 3) // parent, child1, child2
+}

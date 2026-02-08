@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -82,6 +83,15 @@ func generateColorFromName(name string) string {
 	return fmt.Sprintf("#%02X%02X%02X", r, g, b)
 }
 
+var (
+	// compiledMetaSchema is the cached compiled meta-schema
+	compiledMetaSchema *jsonschema.Schema
+	// metaSchemaOnce ensures the meta-schema is compiled only once
+	metaSchemaOnce sync.Once
+	// metaSchemaCompileErr stores any error from compiling the meta-schema
+	metaSchemaCompileErr error
+)
+
 // metaSchemaForPrimitivesOnly defines a JSON schema that validates other schemas
 // to ensure they only contain primitive types in properties
 const metaSchemaForPrimitivesOnly = `{
@@ -144,18 +154,45 @@ const metaSchemaForPrimitivesOnly = `{
   "additionalProperties": true
 }`
 
+// getCompiledMetaSchema returns the cached compiled meta-schema, compiling it on first use
+func getCompiledMetaSchema() (*jsonschema.Schema, error) {
+	metaSchemaOnce.Do(func() {
+		compiler := jsonschema.NewCompiler()
+		compiler.Draft = jsonschema.Draft2020
+
+		err := compiler.AddResource(
+			"primitives-meta-schema",
+			strings.NewReader(metaSchemaForPrimitivesOnly),
+		)
+		if err != nil {
+			metaSchemaCompileErr = fmt.Errorf("internal error: failed to add meta-schema: %w", err)
+			return
+		}
+
+		compiledMetaSchema, metaSchemaCompileErr = compiler.Compile("primitives-meta-schema")
+		if metaSchemaCompileErr != nil {
+			metaSchemaCompileErr = fmt.Errorf(
+				"internal error: failed to compile meta-schema: %w",
+				metaSchemaCompileErr,
+			)
+		}
+	})
+
+	return compiledMetaSchema, metaSchemaCompileErr
+}
+
 // validateSchemaPrimitivesOnly validates that a JSON schema only contains primitive types
 func validateSchemaPrimitivesOnly(schemaJSON string) error {
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-
 	// Parse the input schema to validate it's well-formed JSON
 	var inputSchema interface{}
 	if err := json.Unmarshal([]byte(schemaJSON), &inputSchema); err != nil {
 		return fmt.Errorf("failed to parse schema JSON: %w", err)
 	}
 
-	// First, validate it's a proper JSON schema by compiling it
+	// Validate it's a proper JSON schema by compiling it
+	compiler := jsonschema.NewCompiler()
+	compiler.Draft = jsonschema.Draft2020
+
 	err := compiler.AddResource("input-schema", strings.NewReader(schemaJSON))
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidJSONSchema, err)
@@ -166,18 +203,10 @@ func validateSchemaPrimitivesOnly(schemaJSON string) error {
 		return fmt.Errorf("%w: %v", ErrInvalidJSONSchema, err)
 	}
 
-	// Now validate against our meta-schema that enforces primitive-only properties
-	err = compiler.AddResource(
-		"primitives-meta-schema",
-		strings.NewReader(metaSchemaForPrimitivesOnly),
-	)
+	// Get the cached compiled meta-schema
+	metaSchema, err := getCompiledMetaSchema()
 	if err != nil {
-		return fmt.Errorf("internal error: failed to add meta-schema: %w", err)
-	}
-
-	metaSchema, err := compiler.Compile("primitives-meta-schema")
-	if err != nil {
-		return fmt.Errorf("internal error: failed to compile meta-schema: %w", err)
+		return err
 	}
 
 	// Validate the input schema against our meta-schema
@@ -306,6 +335,23 @@ func (s *TagService) validateTagInput(
 	return nil
 }
 
+// normalizeTagPath normalizes a tag path by removing trailing slashes and collapsing repeated slashes.
+// This ensures consistent path lookups regardless of input format.
+func normalizeTagPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	// Collapse repeated slashes
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
+	}
+	// Remove trailing slash (but keep root "/")
+	if len(path) > 1 {
+		path = strings.TrimSuffix(path, "/")
+	}
+	return path
+}
+
 func buildTagPath(parentPath, name string) string {
 	if parentPath == "" {
 		return "/" + name
@@ -322,7 +368,9 @@ func (s *TagService) resolveParentForCreate(
 		return pgtype.UUID{}, "", nil
 	}
 
-	parent, err := s.queries.GetTagByPath(ctx, namespaceID, *parentPath)
+	// Normalize the parent path to handle trailing slashes and repeated slashes
+	normalizedPath := normalizeTagPath(*parentPath)
+	parent, err := s.queries.GetTagByPath(ctx, namespaceID, normalizedPath)
 	if err != nil {
 		return pgtype.UUID{}, "", ErrParentTagNotFound
 	}
@@ -351,7 +399,9 @@ func (s *TagService) resolveParentForUpdate(
 		return pgtype.UUID{}, "", nil
 	}
 
-	parent, err := s.queries.GetTagByPath(ctx, namespaceID, *parentPath)
+	// Normalize the parent path to handle trailing slashes and repeated slashes
+	normalizedPath := normalizeTagPath(*parentPath)
+	parent, err := s.queries.GetTagByPath(ctx, namespaceID, normalizedPath)
 	if err != nil {
 		return pgtype.UUID{}, "", ErrParentTagNotFound
 	}
