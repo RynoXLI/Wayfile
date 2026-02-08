@@ -31,9 +31,13 @@ Services follow dependency injection with clear separation:
 
 ### Testing Strategy
 - Integration tests use TestContainers with real PostgreSQL + NATS
-- Test pattern: `SetupTestApp()` creates isolated test environment
+- **Shared container pattern**: Tests reuse a single PostgreSQL and NATS instance across all tests for performance
+- Test pattern: `SetupTestApp()` creates isolated test environment with cleaned database/NATS/storage
+- Between tests: Database tables are truncated, NATS streams purged, and storage directories cleaned
+- Migrations run once at test suite startup via `TestMain()`
 - Run integration tests: `go test -tags=integration ./cmd/api -v`
 - Unit tests for services: `go test ./internal/services -v`
+- Integration test performance: ~2s for 22 tests (vs ~24s with per-test containers)
 
 ### Configuration & Dependencies
 - All config in `config.toml` → `internal/config/config.go` structs
@@ -41,6 +45,13 @@ Services follow dependency injection with clear separation:
 - Main dependency setup in `cmd/api/main.go` - follow existing DI patterns
 
 ### API & Handler Patterns
+**API Method Selection**:
+- **New methods should primarily use Connect/gRPC** - define in `proto/*/v1/*.proto`, implement in `cmd/api/rpc/`
+- **Async operations use NATS JetStream** - publish events, don't expose as synchronous APIs
+- **REST endpoints only for file operations** - document upload/download with multipart forms and pre-signed URLs
+- Avoid adding new REST endpoints unless handling file streams
+
+**Implementation Details**:
 - Huma v2 for HTTP with OpenAPI generation - use operation structs for input/output
 - Connect/gRPC services in `cmd/api/rpc/` implement protobuf-generated interfaces
 - Pre-signed URLs for secure document downloads via `internal/auth/presigned.go`

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -41,50 +42,49 @@ import (
 	"github.com/RynoXLI/Wayfile/internal/storage"
 )
 
-// TestApp holds all the test dependencies
-type TestApp struct {
-	App             *App
-	Router          http.Handler
-	Pool            *pgxpool.Pool
-	NC              *nats.Conn
-	TmpDir          string
-	PgContainer     *postgres.PostgresContainer
-	NatsServer      *server.Server
-	ConnectClient   documentsv1connect.DocumentServiceClient
-	NamespaceClient namespacesv1connect.NamespaceServiceClient
-	TagClient       tagsv1connect.TagServiceClient
-	TestServer      *httptest.Server
+// sharedTestResources holds resources shared across all tests
+type sharedTestResources struct {
+	pgContainer *postgres.PostgresContainer
+	natsServer  *server.Server
+	dbURL       string
+	natsURL     string
+	natsDir     string
+	once        sync.Once
+	mu          sync.Mutex
 }
 
-// SetupTestApp initializes the application for integration testing
-func SetupTestApp(t *testing.T) *TestApp {
-	// Create logger
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+var shared = &sharedTestResources{}
 
+// TestMain runs before all tests to set up shared resources and migrations
+func TestMain(m *testing.M) {
+	var code int
+	defer func() {
+		// Cleanup shared resources after all tests
+		if shared.natsServer != nil {
+			shared.natsServer.Shutdown()
+			if shared.natsDir != "" {
+				os.RemoveAll(shared.natsDir)
+			}
+		}
+		if shared.pgContainer != nil {
+			if err := shared.pgContainer.Terminate(context.Background()); err != nil {
+				slog.Error("Failed to terminate postgres container", "error", err)
+			}
+		}
+		os.Exit(code)
+	}()
+
+	code = m.Run()
+}
+
+// runMigrationsOnce runs database migrations once on the shared container
+func runMigrationsOnce(t *testing.T, dbURL string) {
 	ctx := context.Background()
 
-	// Start PostgreSQL container
-	pgContainer, err := postgres.Run(context.Background(),
-		"pgvector/pgvector:pg16",
-		postgres.WithDatabase("wayfile_test"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2),
-		),
-	)
-	require.NoError(t, err)
-
-	// Get database connection string
-	dbURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-
-	// Connect to test database
 	pool, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
+	defer pool.Close()
 
-	// Run database migrations
 	conn, err := pool.Acquire(ctx)
 	require.NoError(t, err)
 	defer conn.Release()
@@ -100,27 +100,127 @@ func SetupTestApp(t *testing.T) *TestApp {
 	// Run migrations
 	err = migrator.Migrate(ctx)
 	require.NoError(t, err)
+}
 
-	// Start embedded NATS server with JetStream
-	natsOpts := &server.Options{
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-		Port:      -1, // Random port
-	}
-	natsServer, err := server.NewServer(natsOpts)
+// getSharedResources initializes shared containers once for all tests
+func getSharedResources(
+	t *testing.T,
+) (pgContainer *postgres.PostgresContainer, natsServer *server.Server, dbURL, natsURL string) {
+	shared.once.Do(func() {
+		ctx := context.Background()
+
+		// Start PostgreSQL container once
+		pgContainer, err := postgres.Run(ctx,
+			"pgvector/pgvector:pg16",
+			postgres.WithDatabase("wayfile_test"),
+			postgres.WithUsername("postgres"),
+			postgres.WithPassword("postgres"),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("database system is ready to accept connections").
+					WithOccurrence(2),
+			),
+		)
+		require.NoError(t, err)
+
+		dbURL, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+		require.NoError(t, err)
+
+		// Create temp directory for NATS JetStream
+		natsDir, err := os.MkdirTemp("", "wayfile-nats-*")
+		require.NoError(t, err)
+
+		// Start embedded NATS server once with JetStream
+		natsOpts := &server.Options{
+			JetStream: true,
+			StoreDir:  natsDir,
+			Port:      -1, // Random port
+		}
+		natsServer, err := server.NewServer(natsOpts)
+		require.NoError(t, err)
+
+		go natsServer.Start()
+		require.True(t, natsServer.ReadyForConnections(10e9)) // 10 second timeout
+
+		shared.pgContainer = pgContainer
+		shared.natsServer = natsServer
+		shared.dbURL = dbURL
+		shared.natsURL = natsServer.ClientURL()
+		shared.natsDir = natsDir
+
+		// Run migrations once on shared database
+		runMigrationsOnce(t, dbURL)
+	})
+
+	return shared.pgContainer, shared.natsServer, shared.dbURL, shared.natsURL
+}
+
+// TestApp holds all the test dependencies
+type TestApp struct {
+	App             *App
+	Router          http.Handler
+	Pool            *pgxpool.Pool
+	NC              *nats.Conn
+	TmpDir          string
+	PgContainer     *postgres.PostgresContainer
+	NatsServer      *server.Server
+	ConnectClient   documentsv1connect.DocumentServiceClient
+	NamespaceClient namespacesv1connect.NamespaceServiceClient
+	TagClient       tagsv1connect.TagServiceClient
+	TestServer      *httptest.Server
+}
+
+// SetupTestApp initializes the application for integration testing.
+// Each test gets:
+// - Fresh database state (all tables truncated except schema_version)
+// - Fresh NATS state (all streams and consumers deleted)
+// - Fresh storage directory (new temp directory per test)
+// - Fresh connection pool and NATS connection
+func SetupTestApp(t *testing.T) *TestApp {
+	// Get shared containers (created once per test suite)
+	_, _, dbURL, natsURL := getSharedResources(t)
+
+	// Lock to prevent concurrent test setup/cleanup
+	shared.mu.Lock()
+	defer shared.mu.Unlock()
+
+	// Create logger
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	ctx := context.Background()
+
+	// Connect to shared test database with fresh connection pool
+	pool, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
 
-	go natsServer.Start()
-	require.True(t, natsServer.ReadyForConnections(10e9)) // 10 second timeout
+	// Clean database before each test
+	conn, err := pool.Acquire(ctx)
+	require.NoError(t, err)
 
-	// Connect to NATS
-	nc, err := nats.Connect(natsServer.ClientURL())
+	_, err = conn.Exec(ctx, `
+		DO $$ DECLARE
+			r RECORD;
+		BEGIN
+			FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'schema_version') LOOP
+				EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
+			END LOOP;
+		END $$;
+	`)
+	require.NoError(t, err)
+	conn.Release()
+
+	// Connect to shared NATS server with fresh connection
+	nc, err := nats.Connect(natsURL)
 	require.NoError(t, err)
 
 	js, err := nc.JetStream()
 	require.NoError(t, err)
 
-	// Create temporary storage directory
+	// Delete all streams to clean NATS state
+	for stream := range js.StreamNames() {
+		_ = js.DeleteStream(stream)
+	}
+
+	// Create temporary storage directory for this test
 	tmpDir, err := os.MkdirTemp("", "wayfile-test-*")
 	require.NoError(t, err)
 
@@ -248,8 +348,8 @@ func SetupTestApp(t *testing.T) *TestApp {
 		Pool:            pool,
 		NC:              nc,
 		TmpDir:          tmpDir,
-		PgContainer:     pgContainer,
-		NatsServer:      natsServer,
+		PgContainer:     nil, // No longer managing container per test
+		NatsServer:      nil, // No longer managing NATS server per test
 		ConnectClient:   connectClient,
 		NamespaceClient: namespaceClient,
 		TagClient:       tagClient,
@@ -257,25 +357,18 @@ func SetupTestApp(t *testing.T) *TestApp {
 	}
 }
 
-// Cleanup tears down test resources
+// Cleanup tears down test resources (but not shared containers)
 func (ta *TestApp) Cleanup(t *testing.T) {
-	ctx := context.Background()
-
 	if ta.TestServer != nil {
 		ta.TestServer.Close()
 	}
 
-	ta.NC.Close()
-	ta.Pool.Close()
-
-	if ta.NatsServer != nil {
-		ta.NatsServer.Shutdown()
+	if ta.NC != nil {
+		ta.NC.Close()
 	}
 
-	if ta.PgContainer != nil {
-		if err := ta.PgContainer.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate postgres container: %v", err)
-		}
+	if ta.Pool != nil {
+		ta.Pool.Close()
 	}
 
 	if ta.TmpDir != "" {
