@@ -50,33 +50,6 @@ func (q *Queries) DeleteTag(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const getOrCreateTag = `-- name: GetOrCreateTag :one
-INSERT INTO tags (namespace_id, name, path)
-SELECT n.id, $2, '/' || $2
-FROM namespaces n
-WHERE n.name = $1
-ON CONFLICT (namespace_id, name) 
-DO UPDATE SET name = tags.name
-RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
-`
-
-func (q *Queries) GetOrCreateTag(ctx context.Context, name string, name_2 string) (Tag, error) {
-	row := q.db.QueryRow(ctx, getOrCreateTag, name, name_2)
-	var i Tag
-	err := row.Scan(
-		&i.ID,
-		&i.NamespaceID,
-		&i.Name,
-		&i.Description,
-		&i.Path,
-		&i.ParentID,
-		&i.Color,
-		&i.CreatedAt,
-		&i.ModifiedAt,
-	)
-	return i, err
-}
-
 const getTagByID = `-- name: GetTagByID :one
 SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE id = $1
 `

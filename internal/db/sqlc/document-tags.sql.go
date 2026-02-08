@@ -47,45 +47,6 @@ func (q *Queries) GetDocumentTagAttributes(ctx context.Context, documentID pgtyp
 	return i, err
 }
 
-const getDocumentTags = `-- name: GetDocumentTags :many
-SELECT t.id, t.namespace_id, t.name, t.path
-FROM tags t
-JOIN document_tags dt ON t.id = dt.tag_id
-WHERE dt.document_id = $1
-`
-
-type GetDocumentTagsRow struct {
-	ID          pgtype.UUID `json:"id"`
-	NamespaceID pgtype.UUID `json:"namespace_id"`
-	Name        string      `json:"name"`
-	Path        string      `json:"path"`
-}
-
-func (q *Queries) GetDocumentTags(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsRow, error) {
-	rows, err := q.db.Query(ctx, getDocumentTags, documentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetDocumentTagsRow{}
-	for rows.Next() {
-		var i GetDocumentTagsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamespaceID,
-			&i.Name,
-			&i.Path,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getDocumentTagsWithAttributes = `-- name: GetDocumentTagsWithAttributes :many
 SELECT t.id, t.namespace_id, t.name, t.path, dt.attributes, dt.attributes_metadata, dt.modified_at
 FROM tags t

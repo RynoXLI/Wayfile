@@ -79,7 +79,10 @@ func NewDocumentService(
 // Helper functions for common operations
 
 // validateNamespace validates and retrieves a namespace by name
-func (s *DocumentService) validateNamespace(ctx context.Context, namespace string) (*sqlc.Namespace, error) {
+func (s *DocumentService) validateNamespace(
+	ctx context.Context,
+	namespace string,
+) (*sqlc.Namespace, error) {
 	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "namespace not found: %v", err)
@@ -97,7 +100,11 @@ func (s *DocumentService) parseAndValidateDocumentID(documentID string) (pgtype.
 }
 
 // resolveTagByPath resolves a tag by its path within a namespace
-func (s *DocumentService) resolveTagByPath(ctx context.Context, namespaceID pgtype.UUID, tagPath string) (*sqlc.Tag, error) {
+func (s *DocumentService) resolveTagByPath(
+	ctx context.Context,
+	namespaceID pgtype.UUID,
+	tagPath string,
+) (*sqlc.Tag, error) {
 	tag, err := s.queries.GetTagByPath(ctx, namespaceID, tagPath)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "tag not found at path %q: %v", tagPath, err)
@@ -106,7 +113,9 @@ func (s *DocumentService) resolveTagByPath(ctx context.Context, namespaceID pgty
 }
 
 // parseAndValidateAttributesJSON parses JSON and returns the map
-func (s *DocumentService) parseAndValidateAttributesJSON(attributesJSON string) (map[string]interface{}, error) {
+func (s *DocumentService) parseAndValidateAttributesJSON(
+	attributesJSON string,
+) (map[string]interface{}, error) {
 	var attributesMap map[string]interface{}
 	if err := json.Unmarshal([]byte(attributesJSON), &attributesMap); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid attributes JSON: %v", err)
@@ -115,7 +124,10 @@ func (s *DocumentService) parseAndValidateAttributesJSON(attributesJSON string) 
 }
 
 // parseExistingMetadata parses existing metadata or returns a default structure
-func (s *DocumentService) parseExistingMetadata(metadataBytes []byte, fallbackExtractedBy string) DocumentTagMetadata {
+func (s *DocumentService) parseExistingMetadata(
+	metadataBytes []byte,
+	fallbackExtractedBy string,
+) DocumentTagMetadata {
 	if len(metadataBytes) > 0 {
 		var metadata DocumentTagMetadata
 		if err := json.Unmarshal(metadataBytes, &metadata); err == nil {
@@ -132,7 +144,12 @@ func (s *DocumentService) parseExistingMetadata(metadataBytes []byte, fallbackEx
 }
 
 // updateAttributeExtractionInfo updates extraction info for all attributes in the map
-func (s *DocumentService) updateAttributeExtractionInfo(metadata *DocumentTagMetadata, attributesMap map[string]interface{}, extractionMethod ExtractionMethod, extractedBy string) {
+func (s *DocumentService) updateAttributeExtractionInfo(
+	metadata *DocumentTagMetadata,
+	attributesMap map[string]interface{},
+	extractionMethod ExtractionMethod,
+	extractedBy string,
+) {
 	now := time.Now()
 	if metadata.Attributes == nil {
 		metadata.Attributes = make(map[string]AttributeExtractionInfo)
@@ -155,7 +172,11 @@ func (s *DocumentService) marshalMetadata(metadata *DocumentTagMetadata) ([]byte
 }
 
 // createAttributeMetadata creates comprehensive extraction metadata for attributes
-func (s *DocumentService) createAttributeMetadata(attributesMap map[string]interface{}, extractionMethod ExtractionMethod, extractedBy string) (*DocumentTagMetadata, error) {
+func (s *DocumentService) createAttributeMetadata(
+	attributesMap map[string]interface{},
+	extractionMethod ExtractionMethod,
+	extractedBy string,
+) (*DocumentTagMetadata, error) {
 	metadata := &DocumentTagMetadata{
 		Tag: AttributeExtractionInfo{
 			Method: extractionMethod, ExtractedBy: extractedBy,
@@ -434,7 +455,11 @@ func (s *DocumentService) UpdateDocumentAttributes(
 
 	if tagPath == "" {
 		// Handle document global attributes
-		metadata, err := s.createAttributeMetadata(attributesMap, ExtractionMethodManual, "api-user")
+		metadata, err := s.createAttributeMetadata(
+			attributesMap,
+			ExtractionMethodManual,
+			"api-user",
+		)
 		if err != nil {
 			return status.Errorf(codes.Internal, "failed to create metadata: %v", err)
 		}
@@ -442,7 +467,17 @@ func (s *DocumentService) UpdateDocumentAttributes(
 		if err != nil {
 			return err
 		}
-		_, err = s.queries.UpdateDocument(ctx, docPgUUID, "", "", pgtype.Date{}, "", 0, []byte(attributesJSON), metadataJSON)
+		_, err = s.queries.UpdateDocument(
+			ctx,
+			docPgUUID,
+			"",
+			"",
+			pgtype.Date{},
+			"",
+			0,
+			[]byte(attributesJSON),
+			metadataJSON,
+		)
 		if err != nil {
 			return status.Errorf(codes.Internal, "failed to update document attributes: %v", err)
 		}
@@ -469,7 +504,13 @@ func (s *DocumentService) UpdateDocumentAttributes(
 	if err != nil {
 		return err
 	}
-	err = s.queries.UpdateDocumentTagAttributes(ctx, docPgUUID, tag.ID, []byte(attributesJSON), updatedMetadataJSON)
+	err = s.queries.UpdateDocumentTagAttributes(
+		ctx,
+		docPgUUID,
+		tag.ID,
+		[]byte(attributesJSON),
+		updatedMetadataJSON,
+	)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to update tag attributes: %v", err)
 	}

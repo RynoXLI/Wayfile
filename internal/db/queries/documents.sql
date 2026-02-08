@@ -19,19 +19,8 @@ INSERT INTO documents (
 -- name: GetDocumentByID :one
 SELECT * FROM documents WHERE id = $1;
 
--- name: GetDocumentsByNamespace :many
-SELECT * FROM documents 
-WHERE namespace_id = $1 
-ORDER BY created_at DESC 
-LIMIT $2 OFFSET $3;
-
 -- name: DeleteDocument :exec
 DELETE FROM documents WHERE id = $1;
-
--- name: GetDocumentsByChecksum :many
-SELECT * FROM documents
-WHERE checksum_sha256 = $1
-ORDER BY created_at DESC;
 
 -- name: UpdateDocument :one
 UPDATE documents SET
