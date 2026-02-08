@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	namespacesv1 "github.com/RynoXLI/Wayfile/gen/go/namespaces/v1"
@@ -96,7 +97,10 @@ func (s *NamespaceServiceServer) GetNamespace(
 	// Get the namespace
 	namespace, err := s.service.GetNamespace(ctx, req.Name)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("namespace not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return &namespacesv1.GetNamespaceResponse{

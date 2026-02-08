@@ -291,6 +291,11 @@ func AssertJSONEqual(t *testing.T, expected, actual string, msgAndArgs ...interf
 	require.Equal(t, expectedJSON, actualJSON, msgAndArgs...)
 }
 
+// stringPtr returns a pointer to a string value
+func stringPtr(s string) *string {
+	return &s
+}
+
 // TestHealthEndpoint tests the health check endpoint
 func TestHealthEndpoint(t *testing.T) {
 	ta := SetupTestApp(t)

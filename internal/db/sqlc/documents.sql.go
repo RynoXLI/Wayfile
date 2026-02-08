@@ -138,3 +138,16 @@ func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName s
 	)
 	return i, err
 }
+
+const updateDocumentAttributes = `-- name: UpdateDocumentAttributes :exec
+UPDATE documents SET
+    attributes = $2,
+    attributes_metadata = $3,
+    modified_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateDocumentAttributes(ctx context.Context, iD pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, updateDocumentAttributes, iD, attributes, attributesMetadata)
+	return err
+}

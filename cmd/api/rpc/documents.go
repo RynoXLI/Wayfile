@@ -4,10 +4,10 @@ package rpc
 import (
 	"context"
 	"errors"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1"
 	"github.com/RynoXLI/Wayfile/internal/services"
@@ -112,6 +112,12 @@ func (s *DocumentsServiceServer) AddTagToDocument(
 		"api-user", // Could be enhanced to get actual user info from context
 	)
 	if err != nil {
+		if errors.Is(err, services.ErrDocumentNotInNamespace) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		if errors.Is(err, services.ErrTagNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, err
 	}
 
@@ -159,6 +165,12 @@ func (s *DocumentsServiceServer) RemoveTagFromDocument(
 		req.TagPath,
 	)
 	if err != nil {
+		if errors.Is(err, services.ErrDocumentNotInNamespace) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		if errors.Is(err, services.ErrTagNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, err
 	}
 
@@ -215,7 +227,7 @@ func (s *DocumentsServiceServer) ListDocumentTags(
 		}
 
 		// Set updated timestamp
-		documentTag.UpdatedAt = tag.ModifiedAt.Time.Format(time.RFC3339)
+		documentTag.UpdatedAt = timestamppb.New(tag.ModifiedAt.Time)
 
 		documentTags[i] = documentTag
 	}
@@ -258,6 +270,12 @@ func (s *DocumentsServiceServer) GetDocumentAttributes(
 		tagPath,
 	)
 	if err != nil {
+		if errors.Is(err, services.ErrDocumentNotInNamespace) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		if errors.Is(err, services.ErrTagNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, err
 	}
 
@@ -318,6 +336,12 @@ func (s *DocumentsServiceServer) UpdateDocumentAttributes(
 		req.Attributes,
 	)
 	if err != nil {
+		if errors.Is(err, services.ErrDocumentNotInNamespace) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		if errors.Is(err, services.ErrTagNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, err
 	}
 

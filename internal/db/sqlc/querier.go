@@ -33,6 +33,7 @@ type Querier interface {
 	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error)
 	RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
 	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte, attributesMetadata []byte) (Document, error)
+	UpdateDocumentAttributes(ctx context.Context, iD pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 }

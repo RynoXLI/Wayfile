@@ -264,8 +264,8 @@ type GetTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// namespace is the name of the namespace containing the tag.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// name is the name of the tag to retrieve.
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// path is the full hierarchical path of the tag to retrieve.
+	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -307,9 +307,9 @@ func (x *GetTagRequest) GetNamespace() string {
 	return ""
 }
 
-func (x *GetTagRequest) GetName() string {
+func (x *GetTagRequest) GetPath() string {
 	if x != nil {
-		return x.Name
+		return x.Path
 	}
 	return ""
 }
@@ -457,8 +457,8 @@ type UpdateTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// namespace is the name of the namespace containing the tag.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// name is the name of the tag to update.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// path is the current full hierarchical path of the tag to update.
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// new_name is the new name for the tag (if renaming).
 	NewName *string `protobuf:"bytes,3,opt,name=new_name,json=newName,proto3,oneof" json:"new_name,omitempty"`
 	// description is the new description for the tag.
@@ -510,9 +510,9 @@ func (x *UpdateTagRequest) GetNamespace() string {
 	return ""
 }
 
-func (x *UpdateTagRequest) GetName() string {
+func (x *UpdateTagRequest) GetPath() string {
 	if x != nil {
-		return x.Name
+		return x.Path
 	}
 	return ""
 }
@@ -603,8 +603,8 @@ type DeleteTagRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// namespace is the name of the namespace containing the tag.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// name is the name of the tag to delete.
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// path is the full hierarchical path of the tag to delete.
+	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -646,9 +646,9 @@ func (x *DeleteTagRequest) GetNamespace() string {
 	return ""
 }
 
-func (x *DeleteTagRequest) GetName() string {
+func (x *DeleteTagRequest) GetPath() string {
 	if x != nil {
-		return x.Name
+		return x.Path
 	}
 	return ""
 }
@@ -726,7 +726,7 @@ const file_tags_v1_tags_proto_rawDesc = "" +
 	"\x03tag\x18\x01 \x01(\v2\f.tags.v1.TagR\x03tag\"A\n" +
 	"\rGetTagRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"0\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"0\n" +
 	"\x0eGetTagResponse\x12\x1e\n" +
 	"\x03tag\x18\x01 \x01(\v2\f.tags.v1.TagR\x03tag\"/\n" +
 	"\x0fListTagsRequest\x12\x1c\n" +
@@ -735,7 +735,7 @@ const file_tags_v1_tags_proto_rawDesc = "" +
 	"\x04tags\x18\x01 \x03(\v2\f.tags.v1.TagR\x04tags\"\xb9\x02\n" +
 	"\x10UpdateTagRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1e\n" +
 	"\bnew_name\x18\x03 \x01(\tH\x00R\anewName\x88\x01\x01\x12%\n" +
 	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12$\n" +
 	"\vparent_path\x18\x05 \x01(\tH\x02R\n" +
@@ -752,7 +752,7 @@ const file_tags_v1_tags_proto_rawDesc = "" +
 	"\x03tag\x18\x01 \x01(\v2\f.tags.v1.TagR\x03tag\"D\n" +
 	"\x10DeleteTagRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x13\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x13\n" +
 	"\x11DeleteTagResponse2\xd4\x02\n" +
 	"\n" +
 	"TagService\x12B\n" +

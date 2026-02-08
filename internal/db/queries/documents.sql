@@ -34,3 +34,10 @@ UPDATE documents SET
     modified_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateDocumentAttributes :exec
+UPDATE documents SET
+    attributes = $2,
+    attributes_metadata = $3,
+    modified_at = NOW()
+WHERE id = $1;

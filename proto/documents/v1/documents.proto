@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package documents.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // DocumentService provides operations for managing documents.
 service DocumentService {
   // UpdateDocument updates an existing document's content.
@@ -97,7 +99,7 @@ message DocumentTag {
   // metadata contains information about the tag association (e.g., how it was extracted).
   optional string metadata = 4;
   // updated_at is the timestamp when the tag was last updated.
-  string updated_at = 5;
+  google.protobuf.Timestamp updated_at = 5;
 }
 
 // ListDocumentTagsResponse contains the tags associated with a document.

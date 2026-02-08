@@ -49,7 +49,7 @@ const (
 type TagServiceClient interface {
 	// CreateTag creates a new tag in a namespace.
 	CreateTag(context.Context, *v1.CreateTagRequest) (*v1.CreateTagResponse, error)
-	// GetTag retrieves a specific tag by name within a namespace.
+	// GetTag retrieves a specific tag by path within a namespace.
 	GetTag(context.Context, *v1.GetTagRequest) (*v1.GetTagResponse, error)
 	// ListTags retrieves all tags in a namespace.
 	ListTags(context.Context, *v1.ListTagsRequest) (*v1.ListTagsResponse, error)
@@ -161,7 +161,7 @@ func (c *tagServiceClient) DeleteTag(ctx context.Context, req *v1.DeleteTagReque
 type TagServiceHandler interface {
 	// CreateTag creates a new tag in a namespace.
 	CreateTag(context.Context, *v1.CreateTagRequest) (*v1.CreateTagResponse, error)
-	// GetTag retrieves a specific tag by name within a namespace.
+	// GetTag retrieves a specific tag by path within a namespace.
 	GetTag(context.Context, *v1.GetTagRequest) (*v1.GetTagResponse, error)
 	// ListTags retrieves all tags in a namespace.
 	ListTags(context.Context, *v1.ListTagsRequest) (*v1.ListTagsResponse, error)

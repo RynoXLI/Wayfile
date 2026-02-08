@@ -109,10 +109,10 @@ func TestTagCRUD(t *testing.T) {
 	require.True(t, foundReports, "reports tag should be in the list")
 	require.True(t, foundQuarterly, "quarterly tag should be in the list")
 
-	// === Step 5: Get specific tag by name ===
+	// === Step 5: Get specific tag by path ===
 	getResp, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "financial",
+		Path:      "/financial",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getResp)
@@ -126,7 +126,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 6: Try to get non-existent tag ===
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "nonexistent",
+		Path:      "/nonexistent",
 	})
 	require.Error(t, err)
 	var connectErr *connect.Error
@@ -141,7 +141,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 7: Update tag description and color ===
 	updateResp, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:   "test-namespace",
-		Name:        "financial",
+		Path:        "/financial",
 		Description: stringPtr("Updated financial documents"),
 		Color:       stringPtr("#00FF00"),
 	})
@@ -156,7 +156,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 8: Verify update persisted ===
 	getResp2, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "financial",
+		Path:      "/financial",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getResp2)
@@ -167,7 +167,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 9: Rename a tag ===
 	updateResp2, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace: "test-namespace",
-		Name:      "reports",
+		Path:      "/reports",
 		NewName:   stringPtr("annual-reports"),
 	})
 	require.NoError(t, err)
@@ -175,10 +175,10 @@ func TestTagCRUD(t *testing.T) {
 	require.NotNil(t, updateResp2.Tag)
 	require.Equal(t, "annual-reports", updateResp2.Tag.Name)
 
-	// === Step 10: Verify old name is gone and new name exists ===
+	// === Step 10: Verify old path is gone and new path exists ===
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "reports",
+		Path:      "/reports",
 	})
 	require.Error(t, err)
 	require.ErrorAs(t, err, &connectErr)
@@ -186,7 +186,7 @@ func TestTagCRUD(t *testing.T) {
 
 	getResp3, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "annual-reports",
+		Path:      "/annual-reports",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getResp3)
@@ -196,7 +196,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 11: Delete a tag ===
 	deleteResp, err := ta.TagClient.DeleteTag(ctx, &tagsv1.DeleteTagRequest{
 		Namespace: "test-namespace",
-		Name:      "financial",
+		Path:      "/financial",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, deleteResp)
@@ -204,7 +204,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 12: Verify tag was deleted ===
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "financial",
+		Path:      "/financial",
 	})
 	require.Error(t, err)
 	require.ErrorAs(t, err, &connectErr)
@@ -213,7 +213,7 @@ func TestTagCRUD(t *testing.T) {
 	// === Step 13: Verify other tags still exist ===
 	getResp4, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "test-namespace",
-		Name:      "annual-reports",
+		Path:      "/annual-reports",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getResp4)
@@ -337,7 +337,7 @@ func TestTagHierarchy(t *testing.T) {
 	// === Step 6: Get child tag and verify parent relationship ===
 	getChildResp, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "hierarchy-test",
-		Name:      "invoices",
+		Path:      "/documents/invoices",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getChildResp)
@@ -347,7 +347,7 @@ func TestTagHierarchy(t *testing.T) {
 	// === Step 7: Update path to change hierarchy ===
 	updateResp, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:  "hierarchy-test",
-		Name:       "receipts",
+		Path:       "/documents/receipts",
 		ParentPath: stringPtr("/documents/invoices"), // Move receipts under invoices
 	})
 	require.NoError(t, err)
@@ -359,7 +359,7 @@ func TestTagHierarchy(t *testing.T) {
 	// === Step 8: Verify updated hierarchy via path ===
 	getUpdatedResp, err := ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "hierarchy-test",
-		Name:      "receipts",
+		Path:      "/documents/invoices/receipts",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, getUpdatedResp)
@@ -490,33 +490,33 @@ func TestTagDeletionCascade(t *testing.T) {
 	// === Step 6: Delete parent tag ===
 	_, err = ta.TagClient.DeleteTag(ctx, &tagsv1.DeleteTagRequest{
 		Namespace: "cascade-test",
-		Name:      "parent",
+		Path:      "/parent",
 	})
 	require.NoError(t, err)
 
 	// === Step 7: Verify parent is deleted ===
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "cascade-test",
-		Name:      "parent",
+		Path:      "/parent",
 	})
 	require.Error(t, err, "Parent tag should be deleted")
 
 	// === Step 8: Verify children are deleted (CASCADE) ===
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "cascade-test",
-		Name:      "child1",
+		Path:      "/parent/child1",
 	})
 	require.Error(t, err, "Child1 should be cascade deleted")
 
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "cascade-test",
-		Name:      "child2",
+		Path:      "/parent/child2",
 	})
 	require.Error(t, err, "Child2 should be cascade deleted")
 
 	_, err = ta.TagClient.GetTag(ctx, &tagsv1.GetTagRequest{
 		Namespace: "cascade-test",
-		Name:      "grandchild",
+		Path:      "/parent/child1/grandchild",
 	})
 	require.Error(t, err, "Grandchild should be cascade deleted")
 
@@ -558,7 +558,7 @@ func TestTagCyclePrevention(t *testing.T) {
 	// === Step 4: Prevent self-parenting ===
 	_, err = ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:  "cycle-test",
-		Name:       "parent",
+		Path:       "/parent",
 		ParentPath: stringPtr("/parent"),
 	})
 	require.Error(t, err)
@@ -569,7 +569,7 @@ func TestTagCyclePrevention(t *testing.T) {
 	// === Step 5: Prevent parent -> descendant cycle ===
 	_, err = ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:  "cycle-test",
-		Name:       "parent",
+		Path:       "/parent",
 		ParentPath: stringPtr("/parent/child"),
 	})
 	require.Error(t, err)
@@ -720,7 +720,7 @@ func TestTagDuplicatePaths(t *testing.T) {
 	// === Step 6: Try to update tag to create duplicate path ===
 	_, err = ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace: "duplicate-test",
-		Name:      "child", // This is the child under /parent2
+		Path:      "/parent2/child", // This is the child under /parent2
 		ParentPath: stringPtr(
 			"/parent",
 		), // Try to move it under /parent (would create duplicate /parent/child)
@@ -849,7 +849,7 @@ func TestTagSchemaCreation(t *testing.T) {
 
 	updatedTagResp, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:  "schema-test",
-		Name:       "simple",
+		Path:       "/simple",
 		JsonSchema: stringPtr(updateSchema),
 	})
 	require.NoError(t, err)
@@ -870,7 +870,7 @@ func TestTagSchemaCreation(t *testing.T) {
 
 	modifiedTagResp, err := ta.TagClient.UpdateTag(ctx, &tagsv1.UpdateTagRequest{
 		Namespace:  "schema-test",
-		Name:       "simple",
+		Path:       "/simple",
 		JsonSchema: stringPtr(modifiedSchema),
 	})
 	require.NoError(t, err)

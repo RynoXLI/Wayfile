@@ -9,6 +9,7 @@ package documentsv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -511,7 +512,7 @@ type DocumentTag struct {
 	// metadata contains information about the tag association (e.g., how it was extracted).
 	Metadata *string `protobuf:"bytes,4,opt,name=metadata,proto3,oneof" json:"metadata,omitempty"`
 	// updated_at is the timestamp when the tag was last updated.
-	UpdatedAt     string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -574,11 +575,11 @@ func (x *DocumentTag) GetMetadata() string {
 	return ""
 }
 
-func (x *DocumentTag) GetUpdatedAt() string {
+func (x *DocumentTag) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 // ListDocumentTagsResponse contains the tags associated with a document.
@@ -860,7 +861,7 @@ var File_documents_v1_documents_proto protoreflect.FileDescriptor
 
 const file_documents_v1_documents_proto_rawDesc = "" +
 	"\n" +
-	"\x1cdocuments/v1/documents.proto\x12\fdocuments.v1\"R\n" +
+	"\x1cdocuments/v1/documents.proto\x12\fdocuments.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"R\n" +
 	"\x15UpdateDocumentRequest\x12\x1f\n" +
 	"\vdocument_id\x18\x01 \x01(\tR\n" +
 	"documentId\x12\x18\n" +
@@ -894,16 +895,16 @@ const file_documents_v1_documents_proto_rawDesc = "" +
 	"\x17ListDocumentTagsRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
-	"documentId\"\xbd\x01\n" +
+	"documentId\"\xd9\x01\n" +
 	"\vDocumentTag\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x19\n" +
 	"\btag_path\x18\x02 \x01(\tR\atagPath\x12#\n" +
 	"\n" +
 	"attributes\x18\x03 \x01(\tH\x00R\n" +
 	"attributes\x88\x01\x01\x12\x1f\n" +
-	"\bmetadata\x18\x04 \x01(\tH\x01R\bmetadata\x88\x01\x01\x12\x1d\n" +
+	"\bmetadata\x18\x04 \x01(\tH\x01R\bmetadata\x88\x01\x01\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\tR\tupdatedAtB\r\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
 	"\v_attributesB\v\n" +
 	"\t_metadata\"I\n" +
 	"\x18ListDocumentTagsResponse\x12-\n" +
@@ -970,28 +971,30 @@ var file_documents_v1_documents_proto_goTypes = []any{
 	(*GetDocumentAttributesResponse)(nil),    // 12: documents.v1.GetDocumentAttributesResponse
 	(*UpdateDocumentAttributesRequest)(nil),  // 13: documents.v1.UpdateDocumentAttributesRequest
 	(*UpdateDocumentAttributesResponse)(nil), // 14: documents.v1.UpdateDocumentAttributesResponse
+	(*timestamppb.Timestamp)(nil),            // 15: google.protobuf.Timestamp
 }
 var file_documents_v1_documents_proto_depIdxs = []int32{
-	9,  // 0: documents.v1.ListDocumentTagsResponse.tags:type_name -> documents.v1.DocumentTag
-	0,  // 1: documents.v1.DocumentService.UpdateDocument:input_type -> documents.v1.UpdateDocumentRequest
-	2,  // 2: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
-	4,  // 3: documents.v1.DocumentService.AddTagToDocument:input_type -> documents.v1.AddTagToDocumentRequest
-	6,  // 4: documents.v1.DocumentService.RemoveTagFromDocument:input_type -> documents.v1.RemoveTagFromDocumentRequest
-	8,  // 5: documents.v1.DocumentService.ListDocumentTags:input_type -> documents.v1.ListDocumentTagsRequest
-	11, // 6: documents.v1.DocumentService.GetDocumentAttributes:input_type -> documents.v1.GetDocumentAttributesRequest
-	13, // 7: documents.v1.DocumentService.UpdateDocumentAttributes:input_type -> documents.v1.UpdateDocumentAttributesRequest
-	1,  // 8: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.UpdateDocumentResponse
-	3,  // 9: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
-	5,  // 10: documents.v1.DocumentService.AddTagToDocument:output_type -> documents.v1.AddTagToDocumentResponse
-	7,  // 11: documents.v1.DocumentService.RemoveTagFromDocument:output_type -> documents.v1.RemoveTagFromDocumentResponse
-	10, // 12: documents.v1.DocumentService.ListDocumentTags:output_type -> documents.v1.ListDocumentTagsResponse
-	12, // 13: documents.v1.DocumentService.GetDocumentAttributes:output_type -> documents.v1.GetDocumentAttributesResponse
-	14, // 14: documents.v1.DocumentService.UpdateDocumentAttributes:output_type -> documents.v1.UpdateDocumentAttributesResponse
-	8,  // [8:15] is the sub-list for method output_type
-	1,  // [1:8] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	15, // 0: documents.v1.DocumentTag.updated_at:type_name -> google.protobuf.Timestamp
+	9,  // 1: documents.v1.ListDocumentTagsResponse.tags:type_name -> documents.v1.DocumentTag
+	0,  // 2: documents.v1.DocumentService.UpdateDocument:input_type -> documents.v1.UpdateDocumentRequest
+	2,  // 3: documents.v1.DocumentService.DeleteDocument:input_type -> documents.v1.DeleteDocumentRequest
+	4,  // 4: documents.v1.DocumentService.AddTagToDocument:input_type -> documents.v1.AddTagToDocumentRequest
+	6,  // 5: documents.v1.DocumentService.RemoveTagFromDocument:input_type -> documents.v1.RemoveTagFromDocumentRequest
+	8,  // 6: documents.v1.DocumentService.ListDocumentTags:input_type -> documents.v1.ListDocumentTagsRequest
+	11, // 7: documents.v1.DocumentService.GetDocumentAttributes:input_type -> documents.v1.GetDocumentAttributesRequest
+	13, // 8: documents.v1.DocumentService.UpdateDocumentAttributes:input_type -> documents.v1.UpdateDocumentAttributesRequest
+	1,  // 9: documents.v1.DocumentService.UpdateDocument:output_type -> documents.v1.UpdateDocumentResponse
+	3,  // 10: documents.v1.DocumentService.DeleteDocument:output_type -> documents.v1.DeleteDocumentResponse
+	5,  // 11: documents.v1.DocumentService.AddTagToDocument:output_type -> documents.v1.AddTagToDocumentResponse
+	7,  // 12: documents.v1.DocumentService.RemoveTagFromDocument:output_type -> documents.v1.RemoveTagFromDocumentResponse
+	10, // 13: documents.v1.DocumentService.ListDocumentTags:output_type -> documents.v1.ListDocumentTagsResponse
+	12, // 14: documents.v1.DocumentService.GetDocumentAttributes:output_type -> documents.v1.GetDocumentAttributesResponse
+	14, // 15: documents.v1.DocumentService.UpdateDocumentAttributes:output_type -> documents.v1.UpdateDocumentAttributesResponse
+	9,  // [9:16] is the sub-list for method output_type
+	2,  // [2:9] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_documents_v1_documents_proto_init() }

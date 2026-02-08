@@ -20,6 +20,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Document service errors
+var (
+	ErrDocumentNotInNamespace = fmt.Errorf("document not found in namespace")
+)
+
 // DocumentService orchestrates document operations across storage, events, and URL generation
 type DocumentService struct {
 	storage    *storage.Storage
@@ -107,7 +112,7 @@ func (s *DocumentService) resolveTagByPath(
 ) (*sqlc.Tag, error) {
 	tag, err := s.queries.GetTagByPath(ctx, namespaceID, tagPath)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "tag not found at path %q: %v", tagPath, err)
+		return nil, fmt.Errorf("%w at path %q: %v", ErrTagNotFound, tagPath, err)
 	}
 	return &tag, nil
 }
@@ -274,6 +279,15 @@ func (s *DocumentService) AddTagToDocument(
 		return err
 	}
 
+	// Verify document exists in the specified namespace
+	document, err := s.queries.GetDocumentByID(ctx, docPgUUID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "document not found: %v", err)
+	}
+	if document.NamespaceID != ns.ID {
+		return ErrDocumentNotInNamespace
+	}
+
 	// Validate attributes if provided
 	var attributesData []byte
 	var attributesMap map[string]interface{}
@@ -315,16 +329,19 @@ func (s *DocumentService) AddTagToDocument(
 	}
 
 	// Include extraction method in event metadata
-	eventMetadata := fmt.Sprintf(
-		`{"extraction_method":"%s","extracted_by":"%s"}`,
-		extractionMethod,
-		extractedBy,
-	)
+	eventMetadataStruct := map[string]string{
+		"extraction_method": string(extractionMethod),
+		"extracted_by":      extractedBy,
+	}
+	eventMetadataBytes, err := json.Marshal(eventMetadataStruct)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to marshal event metadata: %v", err)
+	}
 	event := &eventsv1.TagExtractedEvent{
 		DocumentId: documentID,
 		Namespace:  namespace,
 		TagPath:    tagPath,
-		Metadata:   eventMetadata,
+		Metadata:   string(eventMetadataBytes),
 		Attributes: attributesStr,
 	}
 	if err := s.publisher.TagExtracted(event); err != nil {
@@ -406,6 +423,9 @@ func (s *DocumentService) GetDocumentAttributes(
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "document not found: %v", err)
 		}
+		if document.NamespaceID != ns.ID {
+			return nil, ErrDocumentNotInNamespace
+		}
 
 		// Convert document attributes to the same structure as tag attributes for consistency
 		result := &sqlc.GetDocumentTagAttributesRow{
@@ -420,6 +440,15 @@ func (s *DocumentService) GetDocumentAttributes(
 	tag, err := s.resolveTagByPath(ctx, ns.ID, tagPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// Verify document exists in the specified namespace
+	document, err := s.queries.GetDocumentByID(ctx, docPgUUID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "document not found: %v", err)
+	}
+	if document.NamespaceID != ns.ID {
+		return nil, ErrDocumentNotInNamespace
 	}
 
 	// Get document tag attributes
@@ -448,6 +477,16 @@ func (s *DocumentService) UpdateDocumentAttributes(
 	if err != nil {
 		return err
 	}
+
+	// Verify document exists in the specified namespace
+	document, err := s.queries.GetDocumentByID(ctx, docPgUUID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "document not found: %v", err)
+	}
+	if document.NamespaceID != ns.ID {
+		return ErrDocumentNotInNamespace
+	}
+
 	attributesMap, err := s.parseAndValidateAttributesJSON(attributesJSON)
 	if err != nil {
 		return err
@@ -467,14 +506,9 @@ func (s *DocumentService) UpdateDocumentAttributes(
 		if err != nil {
 			return err
 		}
-		_, err = s.queries.UpdateDocument(
+		err = s.queries.UpdateDocumentAttributes(
 			ctx,
 			docPgUUID,
-			"",
-			"",
-			pgtype.Date{},
-			"",
-			0,
 			[]byte(attributesJSON),
 			metadataJSON,
 		)
@@ -540,6 +574,15 @@ func (s *DocumentService) RemoveTagFromDocument(
 	docPgUUID, err := s.parseAndValidateDocumentID(documentID)
 	if err != nil {
 		return err
+	}
+
+	// Verify document exists in the specified namespace
+	document, err := s.queries.GetDocumentByID(ctx, docPgUUID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "document not found: %v", err)
+	}
+	if document.NamespaceID != ns.ID {
+		return ErrDocumentNotInNamespace
 	}
 
 	// Remove the document-tag association

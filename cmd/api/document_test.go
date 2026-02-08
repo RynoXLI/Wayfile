@@ -499,6 +499,37 @@ func TestUploadErrors(t *testing.T) {
 	ta.Router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNotFound, w.Code, "Non-existent namespace should return 404")
+
+	// Test upload with invalid tags JSON
+	body = &bytes.Buffer{}
+	writer = multipart.NewWriter(body)
+
+	part, err = writer.CreateFormFile("file", "test-with-tags.txt")
+	require.NoError(t, err)
+
+	_, err = part.Write(fileContent)
+	require.NoError(t, err)
+
+	// Add invalid JSON for tags field
+	err = writer.WriteField("tags", "this is not valid json")
+	require.NoError(t, err)
+
+	err = writer.Close()
+	require.NoError(t, err)
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/ns/test-namespace/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w = httptest.NewRecorder()
+
+	ta.Router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code, "Invalid tags JSON should return 400")
+	require.Contains(
+		t,
+		w.Body.String(),
+		"Invalid tags JSON",
+		"Error message should mention invalid tags",
+	)
 }
 
 func TestDocumentTagAssociation(t *testing.T) {
@@ -578,6 +609,106 @@ func TestDocumentTagAssociation(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, listResp.Tags, 0)
+}
+
+// TestDocumentTagUpsert verifies that adding an existing tag updates its attributes
+func TestDocumentTagUpsert(t *testing.T) {
+	ta := SetupTestApp(t)
+	defer ta.Cleanup(t)
+
+	ctx := context.Background()
+
+	// Create namespace
+	_, err := ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "tag-upsert-test",
+	})
+	require.NoError(t, err)
+
+	// Upload a document
+	fileContent := []byte("Test document for tag upsert")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "test.txt")
+	require.NoError(t, err)
+	_, err = part.Write(fileContent)
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ns/tag-upsert-test/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ta.Router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var uploadResp map[string]interface{}
+	err = json.Unmarshal(w.Body.Bytes(), &uploadResp)
+	require.NoError(t, err)
+	documentID := uploadResp["id"].(string)
+
+	// Create a tag with schema
+	schema := `{"type":"object","properties":{"version":{"type":"string"}}}`
+	_, err = ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace:  "tag-upsert-test",
+		Name:       "release",
+		JsonSchema: &schema,
+	})
+	require.NoError(t, err)
+
+	// Add tag with initial attributes
+	initialAttrs := `{"version":"1.0"}`
+	_, err = ta.ConnectClient.AddTagToDocument(ctx, &documentsv1.AddTagToDocumentRequest{
+		Namespace:  "tag-upsert-test",
+		DocumentId: documentID,
+		TagPath:    "/release",
+		Attributes: &initialAttrs,
+	})
+	require.NoError(t, err)
+
+	// Verify initial attributes
+	getResp, err := ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "tag-upsert-test",
+			DocumentId: documentID,
+			TagPath:    stringPtr("/release"),
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, getResp.Attributes)
+	require.JSONEq(t, initialAttrs, *getResp.Attributes)
+
+	// Add tag again with updated attributes (should UPSERT)
+	updatedAttrs := `{"version":"2.0"}`
+	_, err = ta.ConnectClient.AddTagToDocument(ctx, &documentsv1.AddTagToDocumentRequest{
+		Namespace:  "tag-upsert-test",
+		DocumentId: documentID,
+		TagPath:    "/release",
+		Attributes: &updatedAttrs,
+	})
+	require.NoError(t, err)
+
+	// Verify attributes were updated
+	getResp, err = ta.ConnectClient.GetDocumentAttributes(
+		ctx,
+		&documentsv1.GetDocumentAttributesRequest{
+			Namespace:  "tag-upsert-test",
+			DocumentId: documentID,
+			TagPath:    stringPtr("/release"),
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, getResp.Attributes)
+	require.JSONEq(t, updatedAttrs, *getResp.Attributes, "Attributes should be updated by UPSERT")
+
+	// Verify there's still only one tag association
+	listResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "tag-upsert-test",
+		DocumentId: documentID,
+	})
+	require.NoError(t, err)
+	require.Len(t, listResp.Tags, 1, "Should still have only one tag association")
+	require.Equal(t, "/release", listResp.Tags[0].TagPath)
 }
 
 func TestDocumentTagWithAttributes(t *testing.T) {
@@ -962,6 +1093,118 @@ func TestUploadDocumentWithTags(t *testing.T) {
 	require.Equal(t, "2026-02-07", attrs["date"])
 }
 
-func stringPtr(s string) *string {
-	return &s
+func TestCrossNamespaceTagProtection(t *testing.T) {
+	ta := SetupTestApp(t)
+	defer ta.Cleanup(t)
+
+	ctx := context.Background()
+
+	// Create two separate namespaces
+	_, err := ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "namespace-a",
+	})
+	require.NoError(t, err)
+
+	_, err = ta.NamespaceClient.CreateNamespace(ctx, &namespacesv1.CreateNamespaceRequest{
+		Name: "namespace-b",
+	})
+	require.NoError(t, err)
+
+	// Upload a document in namespace-a
+	fileContent := []byte("Document in namespace A")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "doc-a.txt")
+	require.NoError(t, err)
+	_, err = part.Write(fileContent)
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ns/namespace-a/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	ta.Router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var uploadResp DocumentResponse
+	err = json.NewDecoder(w.Body).Decode(&uploadResp)
+	require.NoError(t, err)
+	documentAID := uploadResp.ID
+
+	// Create a tag in namespace-b
+	_, err = ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace: "namespace-b",
+		Name:      "secret-tag",
+	})
+	require.NoError(t, err)
+
+	// Try to add namespace-b's tag to namespace-a's document - should fail
+	_, err = ta.ConnectClient.AddTagToDocument(ctx, &documentsv1.AddTagToDocumentRequest{
+		Namespace:  "namespace-b",
+		DocumentId: documentAID,
+		TagPath:    "/secret-tag",
+	})
+	require.Error(
+		t,
+		err,
+		"Should not be able to add tag from namespace-b to document in namespace-a",
+	)
+	var connectErr *connect.Error
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(
+		t,
+		connect.CodeNotFound,
+		connectErr.Code(),
+		"Should return NotFound for document in wrong namespace",
+	)
+
+	// Create a tag in namespace-a
+	_, err = ta.TagClient.CreateTag(ctx, &tagsv1.CreateTagRequest{
+		Namespace: "namespace-a",
+		Name:      "valid-tag",
+	})
+	require.NoError(t, err)
+
+	// Add the tag from the correct namespace - should succeed
+	_, err = ta.ConnectClient.AddTagToDocument(ctx, &documentsv1.AddTagToDocumentRequest{
+		Namespace:  "namespace-a",
+		DocumentId: documentAID,
+		TagPath:    "/valid-tag",
+	})
+	require.NoError(t, err, "Should be able to add tag from same namespace")
+
+	// Try to update attributes using wrong namespace - should fail
+	attributesJSON := `{"test":"value"}`
+	_, err = ta.ConnectClient.UpdateDocumentAttributes(
+		ctx,
+		&documentsv1.UpdateDocumentAttributesRequest{
+			Namespace:  "namespace-b",
+			DocumentId: documentAID,
+			TagPath:    stringPtr("/valid-tag"),
+			Attributes: attributesJSON,
+		},
+	)
+	require.Error(t, err, "Should not be able to update attributes via wrong namespace")
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(t, connect.CodeNotFound, connectErr.Code())
+
+	// Try to remove tag using wrong namespace - should fail
+	_, err = ta.ConnectClient.RemoveTagFromDocument(ctx, &documentsv1.RemoveTagFromDocumentRequest{
+		Namespace:  "namespace-b",
+		DocumentId: documentAID,
+		TagPath:    "/valid-tag",
+	})
+	require.Error(t, err, "Should not be able to remove tag via wrong namespace")
+	require.ErrorAs(t, err, &connectErr)
+	require.Equal(t, connect.CodeNotFound, connectErr.Code())
+
+	// Verify tag is still there
+	tagsResp, err := ta.ConnectClient.ListDocumentTags(ctx, &documentsv1.ListDocumentTagsRequest{
+		Namespace:  "namespace-a",
+		DocumentId: documentAID,
+	})
+	require.NoError(t, err)
+	require.Len(t, tagsResp.Tags, 1, "Tag should still be associated")
+	require.Equal(t, "/valid-tag", tagsResp.Tags[0].TagPath)
 }

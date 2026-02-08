@@ -136,6 +136,7 @@ func RegisterRoutes(api huma.API, app *App) {
 
 			if err := json.Unmarshal([]byte(formData.Tags), &tagInputs); err != nil {
 				app.Logger.Error("Invalid tags JSON", "error", err, "tags", formData.Tags)
+				return nil, huma.Error400BadRequest("Invalid tags JSON")
 			}
 
 			documentID := result.Document.ID.String()

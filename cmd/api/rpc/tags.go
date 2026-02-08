@@ -81,7 +81,7 @@ func (s *TagServiceServer) CreateTag(
 	}, nil
 }
 
-// GetTag retrieves a specific tag by name within a namespace via Connect RPC
+// GetTag retrieves a specific tag by path within a namespace via Connect RPC
 func (s *TagServiceServer) GetTag(
 	ctx context.Context,
 	req *tagsv1.GetTagRequest,
@@ -94,16 +94,16 @@ func (s *TagServiceServer) GetTag(
 		)
 	}
 
-	// Validate tag name
-	if req.Name == "" {
+	// Validate tag path
+	if req.Path == "" {
 		return nil, connect.NewError(
 			connect.CodeInvalidArgument,
-			errors.New("tag name is required"),
+			errors.New("tag path is required"),
 		)
 	}
 
 	// Get the tag via service
-	result, err := s.service.GetTag(ctx, req.Namespace, req.Name)
+	result, err := s.service.GetTagByPath(ctx, req.Namespace, req.Path)
 	if err != nil {
 		if errors.Is(err, services.ErrNamespaceNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("namespace not found"))
@@ -165,11 +165,11 @@ func (s *TagServiceServer) UpdateTag(
 		)
 	}
 
-	// Validate tag name
-	if req.Name == "" {
+	// Validate tag path
+	if req.Path == "" {
 		return nil, connect.NewError(
 			connect.CodeInvalidArgument,
-			errors.New("tag name is required"),
+			errors.New("tag path is required"),
 		)
 	}
 
@@ -177,7 +177,7 @@ func (s *TagServiceServer) UpdateTag(
 	result, err := s.service.UpdateTag(
 		ctx,
 		req.Namespace,
-		req.Name,
+		req.Path,
 		req.NewName,
 		req.Description,
 		req.ParentPath,
@@ -225,16 +225,16 @@ func (s *TagServiceServer) DeleteTag(
 		)
 	}
 
-	// Validate tag name
-	if req.Name == "" {
+	// Validate tag path
+	if req.Path == "" {
 		return nil, connect.NewError(
 			connect.CodeInvalidArgument,
-			errors.New("tag name is required"),
+			errors.New("tag path is required"),
 		)
 	}
 
 	// Delete the tag via service
-	err := s.service.DeleteTag(ctx, req.Namespace, req.Name)
+	err := s.service.DeleteTag(ctx, req.Namespace, req.Path)
 	if err != nil {
 		if errors.Is(err, services.ErrNamespaceNotFound) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("namespace not found"))

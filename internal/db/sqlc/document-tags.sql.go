@@ -14,7 +14,10 @@ import (
 const addDocumentTag = `-- name: AddDocumentTag :exec
 INSERT INTO document_tags (document_id, tag_id, attributes, attributes_metadata)
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (document_id, tag_id) DO NOTHING
+ON CONFLICT (document_id, tag_id) DO UPDATE
+SET attributes = EXCLUDED.attributes,
+    attributes_metadata = EXCLUDED.attributes_metadata,
+    modified_at = NOW()
 `
 
 func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error {

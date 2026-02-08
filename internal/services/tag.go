@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/santhosh-tekuri/jsonschema/v5"
@@ -207,8 +208,11 @@ func (s *TagService) ValidateAttributes(
 	// Get the tag's latest schema
 	schema, err := s.queries.GetLatestSchemaByTagID(ctx, tagID)
 	if err != nil {
-		// No schema exists, so no validation needed
-		return nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No schema exists, so no validation needed
+			return nil
+		}
+		return fmt.Errorf("failed to get schema for tag: %w", err)
 	}
 
 	// Compile the schema for validation
@@ -433,11 +437,11 @@ func (s *TagService) CreateTag(
 	return result, nil
 }
 
-// GetTag retrieves a tag by name within a namespace
-func (s *TagService) GetTag(
+// GetTagByPath retrieves a tag by its hierarchical path within a namespace
+func (s *TagService) GetTagByPath(
 	ctx context.Context,
 	namespaceName string,
-	tagName string,
+	tagPath string,
 ) (*TagWithSchema, error) {
 	// Get namespace by name
 	namespace, err := s.queries.GetNamespaceByName(ctx, namespaceName)
@@ -445,8 +449,8 @@ func (s *TagService) GetTag(
 		return nil, ErrNamespaceNotFound
 	}
 
-	// Get the tag by name
-	tag, err := s.queries.GetTagByName(ctx, namespace.ID, tagName)
+	// Get the tag by path
+	tag, err := s.queries.GetTagByPath(ctx, namespace.ID, tagPath)
 	if err != nil {
 		return nil, ErrTagNotFound
 	}
@@ -531,7 +535,7 @@ func (s *TagService) ListTags(ctx context.Context, namespaceName string) ([]*Tag
 func (s *TagService) UpdateTag(
 	ctx context.Context,
 	namespaceName string,
-	tagName string,
+	tagPath string,
 	newName *string,
 	description *string,
 	parentPath *string,
@@ -545,7 +549,7 @@ func (s *TagService) UpdateTag(
 	}
 
 	// Get existing tag
-	tag, err := s.queries.GetTagByName(ctx, namespace.ID, tagName)
+	tag, err := s.queries.GetTagByPath(ctx, namespace.ID, tagPath)
 	if err != nil {
 		return nil, ErrTagNotFound
 	}
@@ -648,7 +652,7 @@ func (s *TagService) UpdateTag(
 }
 
 // DeleteTag removes a tag
-func (s *TagService) DeleteTag(ctx context.Context, namespaceName string, tagName string) error {
+func (s *TagService) DeleteTag(ctx context.Context, namespaceName string, tagPath string) error {
 	// Get namespace by name
 	namespace, err := s.queries.GetNamespaceByName(ctx, namespaceName)
 	if err != nil {
@@ -656,7 +660,7 @@ func (s *TagService) DeleteTag(ctx context.Context, namespaceName string, tagNam
 	}
 
 	// Get the tag to delete
-	tag, err := s.queries.GetTagByName(ctx, namespace.ID, tagName)
+	tag, err := s.queries.GetTagByPath(ctx, namespace.ID, tagPath)
 	if err != nil {
 		return ErrTagNotFound
 	}
