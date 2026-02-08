@@ -2,9 +2,40 @@ syntax = "proto3";
 
 package events.v1;
 
+// DocumentUploadedEvent is published when a document is successfully uploaded.
 message DocumentUploadedEvent {
+  // document_id is the unique identifier of the uploaded document.
   string document_id = 1;
-  string namespace_id = 2;
+  // namespace is the name of the namespace containing the document.
+  string namespace = 2;
+  // filename is the original name of the uploaded file.
   string filename = 3;
+  // mime_type is the MIME type of the uploaded file.
   string mime_type = 4;
+}
+
+// SchemaChangedEvent is published when a tag's attribute schema or document schema changes.
+message SchemaChangedEvent {
+  // namespace is the name of the namespace containing the tag.
+  string namespace = 1;
+  // tag_path is the full path of the tag (empty for document global schema).
+  string tag_path = 2;
+  // old_json_schema is the previous JSON Schema definition (empty if first schema).
+  string old_json_schema = 3;
+  // new_json_schema is the new JSON Schema definition.
+  string new_json_schema = 4;
+}
+
+// TagExtractedEvent is published when a tag is successfully extracted/added to a document.
+message TagExtractedEvent {
+  // document_id is the unique identifier of the document.
+  string document_id = 1;
+  // namespace is the name of the namespace containing the document.
+  string namespace = 2;
+  // tag_path is the hierarchical path of the tag.
+  string tag_path = 3;
+  // metadata contains additional information about the extraction context.
+  string metadata = 4;
+  // attributes is the JSON representation of tag attributes (may be empty).
+  string attributes = 5;
 }

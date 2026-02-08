@@ -12,16 +12,9 @@ import (
 )
 
 const createTag = `-- name: CreateTag :one
-INSERT INTO tags (
-    namespace_id,
-    name,
-    description,
-    path,
-    parent_id,
-    color
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
+INSERT INTO tags (namespace_id, name, description, path, parent_id, color)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, namespace_id, name, description, path, parent_id, color, created_at, modified_at
 `
 
 func (q *Queries) CreateTag(ctx context.Context, namespaceID pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error) {
@@ -78,89 +71,54 @@ func (q *Queries) GetTagByID(ctx context.Context, id pgtype.UUID) (Tag, error) {
 	return i, err
 }
 
-const getTags = `-- name: GetTags :many
-SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags
-WHERE namespace_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+const getTagByName = `-- name: GetTagByName :one
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 AND name = $2
 `
 
-func (q *Queries) GetTags(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Tag, error) {
-	rows, err := q.db.Query(ctx, getTags, namespaceID, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Tag{}
-	for rows.Next() {
-		var i Tag
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamespaceID,
-			&i.Name,
-			&i.Description,
-			&i.Path,
-			&i.ParentID,
-			&i.Color,
-			&i.CreatedAt,
-			&i.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetTagByName(ctx context.Context, namespaceID pgtype.UUID, name string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTagByName, namespaceID, name)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
+}
+
+const getTagByPath = `-- name: GetTagByPath :one
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 AND path = $2
+`
+
+func (q *Queries) GetTagByPath(ctx context.Context, namespaceID pgtype.UUID, path string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTagByPath, namespaceID, path)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.Description,
+		&i.Path,
+		&i.ParentID,
+		&i.Color,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+	)
+	return i, err
 }
 
 const getTagsByNamespace = `-- name: GetTagsByNamespace :many
-SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags 
-WHERE namespace_id = $1 
-ORDER BY created_at DESC 
-LIMIT $2 OFFSET $3
+SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags WHERE namespace_id = $1 ORDER BY path
 `
 
-func (q *Queries) GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Tag, error) {
-	rows, err := q.db.Query(ctx, getTagsByNamespace, namespaceID, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Tag{}
-	for rows.Next() {
-		var i Tag
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamespaceID,
-			&i.Name,
-			&i.Description,
-			&i.Path,
-			&i.ParentID,
-			&i.Color,
-			&i.CreatedAt,
-			&i.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTagsByParentID = `-- name: GetTagsByParentID :many
-SELECT id, namespace_id, name, description, path, parent_id, color, created_at, modified_at FROM tags
-WHERE parent_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-func (q *Queries) GetTagsByParentID(ctx context.Context, parentID pgtype.UUID, limit int32, offset int32) ([]Tag, error) {
-	rows, err := q.db.Query(ctx, getTagsByParentID, parentID, limit, offset)
+func (q *Queries) GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error) {
+	rows, err := q.db.Query(ctx, getTagsByNamespace, namespaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +148,8 @@ func (q *Queries) GetTagsByParentID(ctx context.Context, parentID pgtype.UUID, l
 }
 
 const updateTag = `-- name: UpdateTag :one
-UPDATE tags SET
+UPDATE tags
+SET 
     name = COALESCE($2, name),
     description = COALESCE($3, description),
     path = COALESCE($4, path),

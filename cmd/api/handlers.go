@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	"github.com/RynoXLI/Wayfile/internal/auth"
+	"github.com/RynoXLI/Wayfile/internal/services"
 	"github.com/RynoXLI/Wayfile/internal/storage"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
@@ -25,6 +27,7 @@ type DocumentUploadInput struct {
 	Namespace string `path:"namespace" maxLength:"255" doc:"Namespace name"`
 	RawBody   huma.MultipartFormFiles[struct {
 		File huma.FormFile `form:"file" required:"true" doc:"File to upload"`
+		Tags string        `form:"tags" required:"false" doc:"Optional JSON array of tags with attributes, e.g., [{\"tag_path\":\"/invoice\",\"attributes\":{\"amount\":100}}]"`
 	}]
 }
 
@@ -65,14 +68,14 @@ func RegisterRoutes(api huma.API, app *App) {
 		defer cancel()
 
 		// Check database
-		if err := app.pool.Ping(healthCtx); err != nil {
-			app.logger.Error("Health check failed: database", "error", err)
+		if err := app.Pool.Ping(healthCtx); err != nil {
+			app.Logger.Error("Health check failed: database", "error", err)
 			return nil, huma.Error503ServiceUnavailable("Database unavailable")
 		}
 
 		// Check NATS
-		if !app.nc.IsConnected() {
-			app.logger.Error("Health check failed: NATS disconnected")
+		if !app.NC.IsConnected() {
+			app.Logger.Error("Health check failed: NATS disconnected")
 			return nil, huma.Error503ServiceUnavailable("Message queue unavailable")
 		}
 
@@ -100,7 +103,7 @@ func RegisterRoutes(api huma.API, app *App) {
 		contentType := formData.File.ContentType
 
 		// Upload the file using the document service
-		result, err := app.documentService.UploadDocument(
+		result, err := app.DocumentService.UploadDocument(
 			ctx,
 			input.Namespace,
 			filename,
@@ -115,13 +118,60 @@ func RegisterRoutes(api huma.API, app *App) {
 			if errors.Is(err, storage.ErrNotFound) {
 				return nil, huma.Error404NotFound("Namespace not found")
 			}
-			app.logger.Error(
+			app.Logger.Error(
 				"Failed to upload file",
 				"error", err,
 				"namespace", input.Namespace,
 				"filename", filename,
 			)
 			return nil, huma.Error500InternalServerError("Error uploading the file")
+		}
+
+		// Process tags if provided
+		if formData.Tags != "" {
+			var tagInputs []struct {
+				TagPath    string                 `json:"tag_path"`
+				Attributes map[string]interface{} `json:"attributes,omitempty"`
+			}
+
+			if err := json.Unmarshal([]byte(formData.Tags), &tagInputs); err != nil {
+				app.Logger.Error("Invalid tags JSON", "error", err, "tags", formData.Tags)
+				return nil, huma.Error400BadRequest("Invalid tags JSON")
+			}
+
+			documentID := result.Document.ID.String()
+			for _, tagInput := range tagInputs {
+				var attributesJSON *string
+				if len(tagInput.Attributes) > 0 {
+					attrBytes, err := json.Marshal(tagInput.Attributes)
+					if err != nil {
+						app.Logger.Error("Failed to marshal tag attributes", "error", err)
+						return nil, huma.Error400BadRequest("Invalid tag attributes")
+					}
+					attrStr := string(attrBytes)
+					attributesJSON = &attrStr
+				}
+
+				// Add tag to document via service
+				err := app.DocumentService.AddTagToDocument(
+					ctx,
+					input.Namespace,
+					documentID,
+					tagInput.TagPath,
+					attributesJSON,
+					services.ExtractionMethodManual,
+					"api-upload",
+				)
+				if err != nil {
+					app.Logger.Error(
+						"Failed to add tag to document",
+						"error", err,
+						"document_id", documentID,
+						"tag_path", tagInput.TagPath,
+					)
+					// Continue with other tags rather than failing the entire upload
+				}
+			}
 		}
 
 		// Create response with download URL
@@ -153,7 +203,7 @@ func RegisterRoutes(api huma.API, app *App) {
 		}
 
 		// Download the file
-		file, doc, err := app.documentService.DownloadDocument(
+		file, doc, err := app.DocumentService.DownloadDocument(
 			ctx,
 			input.Namespace,
 			input.DocumentID,
@@ -162,13 +212,13 @@ func RegisterRoutes(api huma.API, app *App) {
 			if errors.Is(err, storage.ErrNotFound) {
 				return nil, huma.Error404NotFound("File not found")
 			}
-			app.logger.Error("Failed to download file", "error", err)
+			app.Logger.Error("Failed to download file", "error", err)
 			return nil, huma.Error500InternalServerError("Error downloading the file")
 		}
 
 		// Verify token if provided
 		if input.Token != "" {
-			tokenNsUUID, tokenDocID, err := app.signer.VerifyToken(input.Token)
+			tokenNsUUID, tokenDocID, err := app.Signer.VerifyToken(input.Token)
 			if err != nil {
 				_ = file.Close()
 				if errors.Is(err, auth.ErrTokenExpired) {
@@ -194,7 +244,7 @@ func RegisterRoutes(api huma.API, app *App) {
 				)
 				ctx.SetHeader("Content-Type", doc.MimeType)
 				if _, err := io.Copy(ctx.BodyWriter(), file); err != nil {
-					app.logger.Error("Failed to stream file", "error", err)
+					app.Logger.Error("Failed to stream file", "error", err)
 				}
 			},
 		}, nil

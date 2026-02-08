@@ -2,25 +2,145 @@ syntax = "proto3";
 
 package documents.v1;
 
+import "google/protobuf/timestamp.proto";
+
+// DocumentService provides operations for managing documents.
 service DocumentService {
-  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+  // UpdateDocument updates an existing document's content.
+  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse);
+  // DeleteDocument removes a document from a namespace.
   rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+  // AddTagToDocument associates a tag with a document.
+  rpc AddTagToDocument(AddTagToDocumentRequest) returns (AddTagToDocumentResponse);
+  // RemoveTagFromDocument removes a tag association from a document.
+  rpc RemoveTagFromDocument(RemoveTagFromDocumentRequest) returns (RemoveTagFromDocumentResponse);
+  // ListDocumentTags retrieves all tags associated with a document.
+  rpc ListDocumentTags(ListDocumentTagsRequest) returns (ListDocumentTagsResponse);
+  // GetDocumentAttributes retrieves attributes for a document (global) or specific tag.
+  rpc GetDocumentAttributes(GetDocumentAttributesRequest) returns (GetDocumentAttributesResponse);
+  // UpdateDocumentAttributes updates attributes for a document (global) or specific tag.
+  rpc UpdateDocumentAttributes(UpdateDocumentAttributesRequest) returns (UpdateDocumentAttributesResponse);
 }
 
+// UpdateDocumentRequest contains the data needed to update a document.
 message UpdateDocumentRequest {
+  // document_id is the unique identifier of the document to update.
   string document_id = 1;
+  // content is the new content for the document.
   string content = 2;
 }
 
+// UpdateDocumentResponse contains the updated document information.
+message UpdateDocumentResponse {
+  // document_id is the unique identifier of the document.
+  string document_id = 1;
+  // content is the document's content.
+  string content = 2;
+  // title is the document's title.
+  string title = 3;
+}
+
+// DeleteDocumentRequest contains the information needed to delete a document.
 message DeleteDocumentRequest {
+  // namespace is the name of the namespace containing the document.
   string namespace = 1;
+  // document_id is the unique identifier of the document to delete.
   string document_id = 2;
 }
 
+// DeleteDocumentResponse is returned when a document is successfully deleted.
 message DeleteDocumentResponse {}
 
-message Document {
-  string document_id = 1;
-  string content = 2;
-  string title = 3;
+// AddTagToDocumentRequest contains the information needed to add a tag to a document.
+message AddTagToDocumentRequest {
+  // namespace is the name of the namespace containing the document and tag.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag to associate (e.g., "/backend/api").
+  // Must include a leading slash.
+  string tag_path = 3;
+  // attributes is an optional JSON object containing tag-specific attributes.
+  // Must conform to the tag's attribute schema if one exists.
+  optional string attributes = 4;
 }
+
+// AddTagToDocumentResponse is returned when a tag is successfully added to a document.
+message AddTagToDocumentResponse {}
+
+// RemoveTagFromDocumentRequest contains the information needed to remove a tag from a document.
+message RemoveTagFromDocumentRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag to remove (e.g., "/backend/api").
+  // Must include a leading slash.
+  string tag_path = 3;
+}
+
+// RemoveTagFromDocumentResponse is returned when a tag is successfully removed from a document.
+message RemoveTagFromDocumentResponse {}
+
+// ListDocumentTagsRequest contains the information needed to list tags on a document.
+message ListDocumentTagsRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+}
+
+// DocumentTag represents a tag associated with a document.
+message DocumentTag {
+  // name is the tag name.
+  string name = 1;
+  // tag_path is the full path of the tag.
+  string tag_path = 2;
+  // attributes contains tag-specific attributes as JSON.
+  optional string attributes = 3;
+  // metadata contains information about the tag association (e.g., how it was extracted).
+  optional string metadata = 4;
+  // updated_at is the timestamp when the tag was last updated.
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// ListDocumentTagsResponse contains the tags associated with a document.
+message ListDocumentTagsResponse {
+  // tags are the tags associated with the document.
+  repeated DocumentTag tags = 1;
+}
+
+// GetDocumentAttributesRequest contains the information needed to get attributes.
+message GetDocumentAttributesRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag (optional - if empty, gets document global attributes).
+  // Must include a leading slash (e.g., "/backend/api").
+  optional string tag_path = 3;
+}
+
+// GetDocumentAttributesResponse contains the attributes.
+message GetDocumentAttributesResponse {
+  // attributes contains attributes as JSON (tag-specific or document global).
+  optional string attributes = 1;
+  // metadata contains information about the attributes.
+  optional string metadata = 2;
+}
+
+// UpdateDocumentAttributesRequest contains the information needed to update attributes.
+message UpdateDocumentAttributesRequest {
+  // namespace is the name of the namespace containing the document.
+  string namespace = 1;
+  // document_id is the unique identifier of the document.
+  string document_id = 2;
+  // tag_path is the full path of the tag (optional - if empty, updates document global attributes).
+  // Must include a leading slash (e.g., "/backend/api").
+  optional string tag_path = 3;
+  // attributes is the JSON object containing the new attributes.
+  string attributes = 4;
+}
+
+// UpdateDocumentAttributesResponse is returned when attributes are successfully updated.
+message UpdateDocumentAttributesResponse {}

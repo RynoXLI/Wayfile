@@ -69,7 +69,7 @@ func (q *Queries) DeleteDocument(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getDocumentByID = `-- name: GetDocumentByID :one
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents WHERE id = $1
+SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at FROM documents WHERE id = $1
 `
 
 func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error) {
@@ -87,91 +87,11 @@ func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document
 		&i.PageCount,
 		&i.Attributes,
 		&i.AttributesVersion,
+		&i.AttributesMetadata,
 		&i.CreatedAt,
 		&i.ModifiedAt,
 	)
 	return i, err
-}
-
-const getDocumentsByChecksum = `-- name: GetDocumentsByChecksum :many
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents
-WHERE checksum_sha256 = $1
-ORDER BY created_at DESC
-`
-
-func (q *Queries) GetDocumentsByChecksum(ctx context.Context, checksumSha256 string) ([]Document, error) {
-	rows, err := q.db.Query(ctx, getDocumentsByChecksum, checksumSha256)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Document{}
-	for rows.Next() {
-		var i Document
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamespaceID,
-			&i.FileName,
-			&i.Title,
-			&i.DocumentDate,
-			&i.MimeType,
-			&i.ChecksumSha256,
-			&i.FileSize,
-			&i.PageCount,
-			&i.Attributes,
-			&i.AttributesVersion,
-			&i.CreatedAt,
-			&i.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDocumentsByNamespace = `-- name: GetDocumentsByNamespace :many
-SELECT id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at FROM documents 
-WHERE namespace_id = $1 
-ORDER BY created_at DESC 
-LIMIT $2 OFFSET $3
-`
-
-func (q *Queries) GetDocumentsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Document, error) {
-	rows, err := q.db.Query(ctx, getDocumentsByNamespace, namespaceID, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Document{}
-	for rows.Next() {
-		var i Document
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamespaceID,
-			&i.FileName,
-			&i.Title,
-			&i.DocumentDate,
-			&i.MimeType,
-			&i.ChecksumSha256,
-			&i.FileSize,
-			&i.PageCount,
-			&i.Attributes,
-			&i.AttributesVersion,
-			&i.CreatedAt,
-			&i.ModifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const updateDocument = `-- name: UpdateDocument :one
@@ -182,12 +102,13 @@ UPDATE documents SET
     mime_type = COALESCE($5, mime_type),
     file_size = COALESCE($6, file_size),
     attributes = COALESCE($7, attributes),
+    attributes_metadata = COALESCE($8, attributes_metadata),
     modified_at = NOW()
 WHERE id = $1
-RETURNING id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, created_at, modified_at
+RETURNING id, namespace_id, file_name, title, document_date, mime_type, checksum_sha256, file_size, page_count, attributes, attributes_version, attributes_metadata, created_at, modified_at
 `
 
-func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error) {
+func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte, attributesMetadata []byte) (Document, error) {
 	row := q.db.QueryRow(ctx, updateDocument,
 		iD,
 		fileName,
@@ -196,6 +117,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName s
 		mimeType,
 		fileSize,
 		attributes,
+		attributesMetadata,
 	)
 	var i Document
 	err := row.Scan(
@@ -210,8 +132,22 @@ func (q *Queries) UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName s
 		&i.PageCount,
 		&i.Attributes,
 		&i.AttributesVersion,
+		&i.AttributesMetadata,
 		&i.CreatedAt,
 		&i.ModifiedAt,
 	)
 	return i, err
+}
+
+const updateDocumentAttributes = `-- name: UpdateDocumentAttributes :exec
+UPDATE documents SET
+    attributes = $2,
+    attributes_metadata = $3,
+    modified_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateDocumentAttributes(ctx context.Context, iD pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, updateDocumentAttributes, iD, attributes, attributesMetadata)
+	return err
 }

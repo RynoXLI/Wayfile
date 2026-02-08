@@ -90,6 +90,9 @@ type HealthOutputBody struct {
 type UploadDocumentMultipartBody struct {
 	// File File to upload
 	File openapi_types.File `json:"file"`
+
+	// Tags Optional JSON array of tags with attributes, e.g., [{"tag_path":"/invoice","attributes":{"amount":100}}]
+	Tags *string `json:"tags,omitempty"`
 }
 
 // DownloadDocumentParams defines parameters for DownloadDocument.

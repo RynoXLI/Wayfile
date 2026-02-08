@@ -37,44 +37,26 @@ func (q *Queries) CreateSchema(ctx context.Context, tagID pgtype.UUID, jsonSchem
 	return i, err
 }
 
-const getSchemas = `-- name: GetSchemas :many
-WITH LATEST AS (
-    SELECT tag_id, max(version) as latest_version 
-    FROM attribute_schemas
-    GROUP BY tag_id
-)
+const getLatestSchemaByTagID = `-- name: GetLatestSchemaByTagID :one
 SELECT 
-    a.tag_id, 
-    a.version,
-    a.json_schema,
-    a.created_at
-FROM attribute_schemas a
-JOIN LATEST l ON 
-    a.tag_id = l.tag_id AND 
-    a.version = l.latest_version
+    tag_id, 
+    version,
+    json_schema,
+    created_at
+FROM attribute_schemas
+WHERE tag_id = $1
+ORDER BY version DESC
+LIMIT 1
 `
 
-func (q *Queries) GetSchemas(ctx context.Context) ([]AttributeSchema, error) {
-	rows, err := q.db.Query(ctx, getSchemas)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []AttributeSchema{}
-	for rows.Next() {
-		var i AttributeSchema
-		if err := rows.Scan(
-			&i.TagID,
-			&i.Version,
-			&i.JsonSchema,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetLatestSchemaByTagID(ctx context.Context, tagID pgtype.UUID) (AttributeSchema, error) {
+	row := q.db.QueryRow(ctx, getLatestSchemaByTagID, tagID)
+	var i AttributeSchema
+	err := row.Scan(
+		&i.TagID,
+		&i.Version,
+		&i.JsonSchema,
+		&i.CreatedAt,
+	)
+	return i, err
 }

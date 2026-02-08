@@ -12,7 +12,7 @@ import (
 )
 
 type Querier interface {
-	AssociateTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error
+	AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	CreateDocument(ctx context.Context, iD pgtype.UUID, namespaceID pgtype.UUID, fileName string, title string, mimeType string, checksumSha256 string, fileSize int64) (CreateDocumentRow, error)
 	CreateNamespace(ctx context.Context, name string) (Namespace, error)
 	CreateSchema(ctx context.Context, tagID pgtype.UUID, jsonSchema json.RawMessage) (AttributeSchema, error)
@@ -21,20 +21,20 @@ type Querier interface {
 	DeleteNamespace(ctx context.Context, name string) error
 	DeleteTag(ctx context.Context, id pgtype.UUID) error
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
-	GetDocumentsByChecksum(ctx context.Context, checksumSha256 string) ([]Document, error)
-	GetDocumentsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Document, error)
-	GetDocumentsByTagID(ctx context.Context, tagID pgtype.UUID) ([]GetDocumentsByTagIDRow, error)
+	//--------- Tag-specific attributes -----------
+	GetDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) (GetDocumentTagAttributesRow, error)
+	GetDocumentTagsWithAttributes(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsWithAttributesRow, error)
+	GetLatestSchemaByTagID(ctx context.Context, tagID pgtype.UUID) (AttributeSchema, error)
 	GetNamespaceByName(ctx context.Context, name string) (Namespace, error)
 	GetNamespaces(ctx context.Context) ([]Namespace, error)
-	GetSchemas(ctx context.Context) ([]AttributeSchema, error)
 	GetTagByID(ctx context.Context, id pgtype.UUID) (Tag, error)
-	GetTags(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Tag, error)
-	GetTagsByDocumentID(ctx context.Context, documentID pgtype.UUID) ([]GetTagsByDocumentIDRow, error)
-	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID, limit int32, offset int32) ([]Tag, error)
-	GetTagsByParentID(ctx context.Context, parentID pgtype.UUID, limit int32, offset int32) ([]Tag, error)
-	RemoveTagAssociation(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
-	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error)
-	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error
+	GetTagByName(ctx context.Context, namespaceID pgtype.UUID, name string) (Tag, error)
+	GetTagByPath(ctx context.Context, namespaceID pgtype.UUID, path string) (Tag, error)
+	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error)
+	RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
+	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte, attributesMetadata []byte) (Document, error)
+	UpdateDocumentAttributes(ctx context.Context, iD pgtype.UUID, attributes []byte, attributesMetadata []byte) error
+	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 }
 

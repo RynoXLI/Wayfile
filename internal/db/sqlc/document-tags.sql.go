@@ -11,73 +11,80 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const associateTag = `-- name: AssociateTag :exec
-INSERT INTO document_tags (
-    document_id,
-    tag_id,
-    attributes
-) VALUES (
-    $1, $2, $3
-)
+const addDocumentTag = `-- name: AddDocumentTag :exec
+INSERT INTO document_tags (document_id, tag_id, attributes, attributes_metadata)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (document_id, tag_id) DO UPDATE
+SET attributes = EXCLUDED.attributes,
+    attributes_metadata = EXCLUDED.attributes_metadata,
+    modified_at = NOW()
 `
 
-func (q *Queries) AssociateTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error {
-	_, err := q.db.Exec(ctx, associateTag, documentID, tagID, attributes)
+func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, addDocumentTag,
+		documentID,
+		tagID,
+		attributes,
+		attributesMetadata,
+	)
 	return err
 }
 
-const getDocumentsByTagID = `-- name: GetDocumentsByTagID :many
-SELECT dt.document_id, dt.attributes
-FROM document_tags dt
-WHERE dt.tag_id = $1
+const getDocumentTagAttributes = `-- name: GetDocumentTagAttributes :one
+
+SELECT attributes, attributes_metadata
+FROM document_tags
+WHERE document_id = $1 AND tag_id = $2
 `
 
-type GetDocumentsByTagIDRow struct {
-	DocumentID pgtype.UUID `json:"document_id"`
-	Attributes []byte      `json:"attributes"`
+type GetDocumentTagAttributesRow struct {
+	Attributes         []byte `json:"attributes"`
+	AttributesMetadata []byte `json:"attributes_metadata"`
 }
 
-func (q *Queries) GetDocumentsByTagID(ctx context.Context, tagID pgtype.UUID) ([]GetDocumentsByTagIDRow, error) {
-	rows, err := q.db.Query(ctx, getDocumentsByTagID, tagID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetDocumentsByTagIDRow{}
-	for rows.Next() {
-		var i GetDocumentsByTagIDRow
-		if err := rows.Scan(&i.DocumentID, &i.Attributes); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+// --------- Tag-specific attributes -----------
+func (q *Queries) GetDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) (GetDocumentTagAttributesRow, error) {
+	row := q.db.QueryRow(ctx, getDocumentTagAttributes, documentID, tagID)
+	var i GetDocumentTagAttributesRow
+	err := row.Scan(&i.Attributes, &i.AttributesMetadata)
+	return i, err
 }
 
-const getTagsByDocumentID = `-- name: GetTagsByDocumentID :many
-SELECT dt.tag_id, dt.attributes
-FROM document_tags dt
+const getDocumentTagsWithAttributes = `-- name: GetDocumentTagsWithAttributes :many
+SELECT t.id, t.namespace_id, t.name, t.path, dt.attributes, dt.attributes_metadata, dt.modified_at
+FROM tags t
+JOIN document_tags dt ON t.id = dt.tag_id
 WHERE dt.document_id = $1
 `
 
-type GetTagsByDocumentIDRow struct {
-	TagID      pgtype.UUID `json:"tag_id"`
-	Attributes []byte      `json:"attributes"`
+type GetDocumentTagsWithAttributesRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	NamespaceID        pgtype.UUID        `json:"namespace_id"`
+	Name               string             `json:"name"`
+	Path               string             `json:"path"`
+	Attributes         []byte             `json:"attributes"`
+	AttributesMetadata []byte             `json:"attributes_metadata"`
+	ModifiedAt         pgtype.Timestamptz `json:"modified_at"`
 }
 
-func (q *Queries) GetTagsByDocumentID(ctx context.Context, documentID pgtype.UUID) ([]GetTagsByDocumentIDRow, error) {
-	rows, err := q.db.Query(ctx, getTagsByDocumentID, documentID)
+func (q *Queries) GetDocumentTagsWithAttributes(ctx context.Context, documentID pgtype.UUID) ([]GetDocumentTagsWithAttributesRow, error) {
+	rows, err := q.db.Query(ctx, getDocumentTagsWithAttributes, documentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetTagsByDocumentIDRow{}
+	items := []GetDocumentTagsWithAttributesRow{}
 	for rows.Next() {
-		var i GetTagsByDocumentIDRow
-		if err := rows.Scan(&i.TagID, &i.Attributes); err != nil {
+		var i GetDocumentTagsWithAttributesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NamespaceID,
+			&i.Name,
+			&i.Path,
+			&i.Attributes,
+			&i.AttributesMetadata,
+			&i.ModifiedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -88,23 +95,28 @@ func (q *Queries) GetTagsByDocumentID(ctx context.Context, documentID pgtype.UUI
 	return items, nil
 }
 
-const removeTagAssociation = `-- name: RemoveTagAssociation :exec
+const removeDocumentTag = `-- name: RemoveDocumentTag :exec
 DELETE FROM document_tags
 WHERE document_id = $1 AND tag_id = $2
 `
 
-func (q *Queries) RemoveTagAssociation(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, removeTagAssociation, documentID, tagID)
+func (q *Queries) RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, removeDocumentTag, documentID, tagID)
 	return err
 }
 
 const updateDocumentTagAttributes = `-- name: UpdateDocumentTagAttributes :exec
-UPDATE document_tags SET
-    attributes = $3
+UPDATE document_tags
+SET attributes = $3, attributes_metadata = $4, modified_at = NOW()
 WHERE document_id = $1 AND tag_id = $2
 `
 
-func (q *Queries) UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error {
-	_, err := q.db.Exec(ctx, updateDocumentTagAttributes, documentID, tagID, attributes)
+func (q *Queries) UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, updateDocumentTagAttributes,
+		documentID,
+		tagID,
+		attributes,
+		attributesMetadata,
+	)
 	return err
 }

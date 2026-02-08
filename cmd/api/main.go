@@ -22,6 +22,8 @@ import (
 
 	"github.com/RynoXLI/Wayfile/cmd/api/rpc"
 	documentsv1 "github.com/RynoXLI/Wayfile/gen/go/documents/v1/documentsv1connect"
+	namespacesv1 "github.com/RynoXLI/Wayfile/gen/go/namespaces/v1/namespacesv1connect"
+	"github.com/RynoXLI/Wayfile/gen/go/tags/v1/tagsv1connect"
 	"github.com/RynoXLI/Wayfile/internal/auth"
 	"github.com/RynoXLI/Wayfile/internal/config"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
@@ -95,6 +97,9 @@ func main() {
 	queries := sqlc.New(pool)
 	storageService := storage.NewStorage(localClient, queries, logger)
 
+	// Initialize tag service (needed by document service)
+	tagService := services.NewTagService(queries, publisher)
+
 	// Initialize document service
 	signer := auth.NewSigner(cfg.Server.SigningSecret)
 	documentService := services.NewDocumentService(
@@ -102,16 +107,21 @@ func main() {
 		publisher,
 		signer,
 		cfg.Server.BaseURL,
+		queries,
+		tagService,
 	)
+
+	// Initialize namespace service
+	namespaceService := services.NewNamespaceService(queries)
 
 	// Initialize app
 	app := &App{
-		documentService: documentService,
-		logger:          logger,
-		signer:          signer,
-		baseURL:         cfg.Server.BaseURL,
-		pool:            pool,
-		nc:              nc,
+		DocumentService: documentService,
+		Logger:          logger,
+		Signer:          signer,
+		BaseURL:         cfg.Server.BaseURL,
+		Pool:            pool,
+		NC:              nc,
 	}
 
 	// Setup router with Huma
@@ -162,6 +172,22 @@ func main() {
 	)
 	router.Mount(connectPath, connectHandler)
 
+	// Mount Namespace RPC handlers
+	namespaceRPCService := rpc.NewNamespaceServiceServer(namespaceService)
+	namespacePath, namespaceHandler := namespacesv1.NewNamespaceServiceHandler(
+		namespaceRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(namespacePath, namespaceHandler)
+
+	// Mount Tag RPC handlers
+	tagRPCService := rpc.NewTagServiceServer(tagService)
+	tagPath, tagHandler := tagsv1connect.NewTagServiceHandler(
+		tagRPCService,
+		connect.WithInterceptors(),
+	)
+	router.Mount(tagPath, tagHandler)
+
 	// Add endpoint for OpenAPI 3.0.3 (downgraded for oapi-codegen)
 	router.Get("/openapi-3.0.yaml", func(w http.ResponseWriter, _ *http.Request) {
 		b, err := api.OpenAPI().DowngradeYAML()
@@ -203,10 +229,10 @@ func main() {
 }
 
 type App struct {
-	documentService *services.DocumentService
-	logger          *slog.Logger
-	signer          *auth.Signer
-	baseURL         string
-	pool            *pgxpool.Pool
-	nc              *nats.Conn
+	DocumentService *services.DocumentService
+	Logger          *slog.Logger
+	Signer          *auth.Signer
+	BaseURL         string
+	Pool            *pgxpool.Pool
+	NC              *nats.Conn
 }

@@ -1,29 +1,23 @@
 -- name: CreateTag :one
-INSERT INTO tags (
-    namespace_id,
-    name,
-    description,
-    path,
-    parent_id,
-    color
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING *;
+INSERT INTO tags (namespace_id, name, description, path, parent_id, color)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
 
 -- name: GetTagByID :one
 SELECT * FROM tags WHERE id = $1;
 
--- name: GetTagsByNamespace :many
-SELECT * FROM tags 
-WHERE namespace_id = $1 
-ORDER BY created_at DESC 
-LIMIT $2 OFFSET $3;
+-- name: GetTagByName :one
+SELECT * FROM tags WHERE namespace_id = $1 AND name = $2;
 
--- name: DeleteTag :exec
-DELETE FROM tags WHERE id = $1;
+-- name: GetTagByPath :one
+SELECT * FROM tags WHERE namespace_id = $1 AND path = $2;
+
+-- name: GetTagsByNamespace :many
+SELECT * FROM tags WHERE namespace_id = $1 ORDER BY path;
 
 -- name: UpdateTag :one
-UPDATE tags SET
+UPDATE tags
+SET 
     name = COALESCE($2, name),
     description = COALESCE($3, description),
     path = COALESCE($4, path),
@@ -33,14 +27,5 @@ UPDATE tags SET
 WHERE id = $1
 RETURNING *;
 
--- name: GetTagsByParentID :many
-SELECT * FROM tags
-WHERE parent_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
-
--- name: GetTags :many
-SELECT * FROM tags
-WHERE namespace_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+-- name: DeleteTag :exec
+DELETE FROM tags WHERE id = $1;
