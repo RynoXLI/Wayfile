@@ -107,6 +107,8 @@ func (s *DocumentsServiceServer) AddTagToDocument(
 		req.DocumentId,
 		req.TagPath,
 		req.Attributes,
+		services.ExtractionMethodManual,
+		"api-user", // Could be enhanced to get actual user info from context
 	)
 	if err != nil {
 		return nil, err

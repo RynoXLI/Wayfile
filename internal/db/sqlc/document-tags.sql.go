@@ -12,33 +12,38 @@ import (
 )
 
 const addDocumentTag = `-- name: AddDocumentTag :exec
-INSERT INTO document_tags (document_id, tag_id, attributes)
-VALUES ($1, $2, $3)
+INSERT INTO document_tags (document_id, tag_id, attributes, attributes_metadata)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (document_id, tag_id) DO NOTHING
 `
 
-func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error {
-	_, err := q.db.Exec(ctx, addDocumentTag, documentID, tagID, attributes)
+func (q *Queries) AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, addDocumentTag,
+		documentID,
+		tagID,
+		attributes,
+		attributesMetadata,
+	)
 	return err
 }
 
 const getDocumentTagAttributes = `-- name: GetDocumentTagAttributes :one
 
-SELECT attributes, attributes_version
+SELECT attributes, attributes_metadata
 FROM document_tags
 WHERE document_id = $1 AND tag_id = $2
 `
 
 type GetDocumentTagAttributesRow struct {
-	Attributes        []byte `json:"attributes"`
-	AttributesVersion *int64 `json:"attributes_version"`
+	Attributes         []byte `json:"attributes"`
+	AttributesMetadata []byte `json:"attributes_metadata"`
 }
 
 // --------- Tag-specific attributes -----------
 func (q *Queries) GetDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) (GetDocumentTagAttributesRow, error) {
 	row := q.db.QueryRow(ctx, getDocumentTagAttributes, documentID, tagID)
 	var i GetDocumentTagAttributesRow
-	err := row.Scan(&i.Attributes, &i.AttributesVersion)
+	err := row.Scan(&i.Attributes, &i.AttributesMetadata)
 	return i, err
 }
 
@@ -93,11 +98,16 @@ func (q *Queries) RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID,
 
 const updateDocumentTagAttributes = `-- name: UpdateDocumentTagAttributes :exec
 UPDATE document_tags
-SET attributes = $3, modified_at = NOW()
+SET attributes = $3, attributes_metadata = $4, modified_at = NOW()
 WHERE document_id = $1 AND tag_id = $2
 `
 
-func (q *Queries) UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error {
-	_, err := q.db.Exec(ctx, updateDocumentTagAttributes, documentID, tagID, attributes)
+func (q *Queries) UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error {
+	_, err := q.db.Exec(ctx, updateDocumentTagAttributes,
+		documentID,
+		tagID,
+		attributes,
+		attributesMetadata,
+	)
 	return err
 }

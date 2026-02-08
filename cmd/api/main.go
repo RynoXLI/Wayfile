@@ -97,6 +97,9 @@ func main() {
 	queries := sqlc.New(pool)
 	storageService := storage.NewStorage(localClient, queries, logger)
 
+	// Initialize tag service (needed by document service)
+	tagService := services.NewTagService(queries, publisher)
+
 	// Initialize document service
 	signer := auth.NewSigner(cfg.Server.SigningSecret)
 	documentService := services.NewDocumentService(
@@ -105,13 +108,11 @@ func main() {
 		signer,
 		cfg.Server.BaseURL,
 		queries,
+		tagService,
 	)
 
 	// Initialize namespace service
 	namespaceService := services.NewNamespaceService(queries)
-
-	// Initialize tag service
-	tagService := services.NewTagService(queries, publisher)
 
 	// Initialize app
 	app := &App{

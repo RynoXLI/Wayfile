@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 
 	eventsv1 "github.com/RynoXLI/Wayfile/gen/go/events/v1"
 	"github.com/RynoXLI/Wayfile/internal/db/sqlc"
@@ -38,6 +39,12 @@ var (
 	ErrTagAlreadyExists = errors.New("tag with this path already exists")
 	// ErrInvalidJSONSchema is returned when a JSON schema is malformed
 	ErrInvalidJSONSchema = errors.New("invalid JSON schema")
+	// ErrNestedTypesNotAllowed is returned when a JSON schema contains nested objects or arrays
+	ErrNestedTypesNotAllowed = errors.New(
+		"nested types not allowed in schema, only primitive types are supported",
+	)
+	// ErrAttributeValidationFailed is returned when attributes don't match the tag's schema
+	ErrAttributeValidationFailed = errors.New("attribute validation failed")
 
 	tagNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,98}[a-zA-Z0-9]$|^[a-zA-Z0-9]$`)
 	colorRegex   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -72,6 +79,158 @@ func generateColorFromName(name string) string {
 	b := uint8(80 + seed%176)       // 80-255
 
 	return fmt.Sprintf("#%02X%02X%02X", r, g, b)
+}
+
+// metaSchemaForPrimitivesOnly defines a JSON schema that validates other schemas
+// to ensure they only contain primitive types in properties
+const metaSchemaForPrimitivesOnly = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {
+      "const": "object"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type"],
+        "anyOf": [
+          {
+            "properties": {
+              "type": {"const": "string"},
+              "minLength": {"type": "integer", "minimum": 0},
+              "maxLength": {"type": "integer", "minimum": 0},
+              "pattern": {"type": "string"},
+              "format": {"type": "string", "enum": ["date", "time", "date-time", "email", "uuid", "uri", "hostname", "ipv4", "ipv6"]},
+              "enum": {"type": "array", "items": {"type": "string"}}
+            },
+            "additionalProperties": true
+          },
+          {
+            "properties": {
+              "type": {"const": "number"},
+              "minimum": {"type": "number"},
+              "maximum": {"type": "number"},
+              "enum": {"type": "array", "items": {"type": "number"}}
+            },
+            "additionalProperties": true
+          },
+          {
+            "properties": {
+              "type": {"const": "integer"},
+              "minimum": {"type": "integer"},
+              "maximum": {"type": "integer"},
+              "enum": {"type": "array", "items": {"type": "integer"}}
+            },
+            "additionalProperties": true
+          },
+          {
+            "properties": {
+              "type": {"const": "boolean"}
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "required": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": true
+}`
+
+// validateSchemaPrimitivesOnly validates that a JSON schema only contains primitive types
+func validateSchemaPrimitivesOnly(schemaJSON string) error {
+	compiler := jsonschema.NewCompiler()
+	compiler.Draft = jsonschema.Draft2020
+
+	// Parse the input schema to validate it's well-formed JSON
+	var inputSchema interface{}
+	if err := json.Unmarshal([]byte(schemaJSON), &inputSchema); err != nil {
+		return fmt.Errorf("failed to parse schema JSON: %w", err)
+	}
+
+	// First, validate it's a proper JSON schema by compiling it
+	err := compiler.AddResource("input-schema", strings.NewReader(schemaJSON))
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidJSONSchema, err)
+	}
+
+	_, err = compiler.Compile("input-schema")
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidJSONSchema, err)
+	}
+
+	// Now validate against our meta-schema that enforces primitive-only properties
+	err = compiler.AddResource(
+		"primitives-meta-schema",
+		strings.NewReader(metaSchemaForPrimitivesOnly),
+	)
+	if err != nil {
+		return fmt.Errorf("internal error: failed to add meta-schema: %w", err)
+	}
+
+	metaSchema, err := compiler.Compile("primitives-meta-schema")
+	if err != nil {
+		return fmt.Errorf("internal error: failed to compile meta-schema: %w", err)
+	}
+
+	// Validate the input schema against our meta-schema
+	if err := metaSchema.Validate(inputSchema); err != nil {
+		return fmt.Errorf("%w: %v", ErrNestedTypesNotAllowed, err)
+	}
+
+	return nil
+}
+
+// isPrimitiveType checks if a JSON Schema type is a primitive type
+func isPrimitiveType(schemaType string) bool {
+	primitives := map[string]bool{
+		"string":  true,
+		"number":  true,
+		"integer": true,
+		"boolean": true,
+	}
+	return primitives[schemaType]
+}
+
+// ValidateAttributes validates attribute data against a tag's schema
+func (s *TagService) ValidateAttributes(
+	ctx context.Context,
+	tagID pgtype.UUID,
+	attributes map[string]interface{},
+) error {
+	// Get the tag's latest schema
+	schema, err := s.queries.GetLatestSchemaByTagID(ctx, tagID)
+	if err != nil {
+		// No schema exists, so no validation needed
+		return nil
+	}
+
+	// Compile the schema for validation
+	compiler := jsonschema.NewCompiler()
+	compiler.Draft = jsonschema.Draft2020
+
+	err = compiler.AddResource("tag-schema", strings.NewReader(string(schema.JsonSchema)))
+	if err != nil {
+		return fmt.Errorf("failed to add schema resource: %w", err)
+	}
+
+	compiledSchema, err := compiler.Compile("tag-schema")
+	if err != nil {
+		return fmt.Errorf("failed to compile schema: %w", err)
+	}
+
+	// Validate the attributes against the schema
+	if err := compiledSchema.Validate(attributes); err != nil {
+		return fmt.Errorf("%w: %v", ErrAttributeValidationFailed, err)
+	}
+
+	return nil
 }
 
 // ensureColor returns the provided color or generates one if nil/empty
@@ -133,6 +292,10 @@ func (s *TagService) validateTagInput(
 	if jsonSchema != nil && *jsonSchema != "" {
 		if !json.Valid([]byte(*jsonSchema)) {
 			return fmt.Errorf("%w: provided JSON schema is not valid JSON", ErrInvalidJSONSchema)
+		}
+		// Validate that schema only contains primitive types
+		if err := validateSchemaPrimitivesOnly(*jsonSchema); err != nil {
+			return err
 		}
 	}
 

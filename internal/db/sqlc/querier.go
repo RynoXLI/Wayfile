@@ -12,7 +12,7 @@ import (
 )
 
 type Querier interface {
-	AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error
+	AddDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	CreateDocument(ctx context.Context, iD pgtype.UUID, namespaceID pgtype.UUID, fileName string, title string, mimeType string, checksumSha256 string, fileSize int64) (CreateDocumentRow, error)
 	CreateNamespace(ctx context.Context, name string) (Namespace, error)
 	CreateSchema(ctx context.Context, tagID pgtype.UUID, jsonSchema json.RawMessage) (AttributeSchema, error)
@@ -37,7 +37,7 @@ type Querier interface {
 	GetTagsByNamespace(ctx context.Context, namespaceID pgtype.UUID) ([]Tag, error)
 	RemoveDocumentTag(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID) error
 	UpdateDocument(ctx context.Context, iD pgtype.UUID, fileName string, title string, documentDate pgtype.Date, mimeType string, fileSize int64, attributes []byte) (Document, error)
-	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte) error
+	UpdateDocumentTagAttributes(ctx context.Context, documentID pgtype.UUID, tagID pgtype.UUID, attributes []byte, attributesMetadata []byte) error
 	UpdateTag(ctx context.Context, iD pgtype.UUID, name string, description *string, path string, parentID pgtype.UUID, color *string) (Tag, error)
 }
 

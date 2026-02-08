@@ -133,6 +133,9 @@ func SetupTestApp(t *testing.T) *TestApp {
 	queries := sqlc.New(pool)
 	storageService := storage.NewStorage(localClient, queries, logger)
 
+	// Initialize tag service (needed by document service)
+	tagService := services.NewTagService(queries, publisher)
+
 	// Initialize document service
 	signer := auth.NewSigner("test-secret")
 	baseURL := "http://localhost:8080"
@@ -142,13 +145,11 @@ func SetupTestApp(t *testing.T) *TestApp {
 		signer,
 		baseURL,
 		queries,
+		tagService,
 	)
 
 	// Initialize namespace service
 	namespaceService := services.NewNamespaceService(queries)
-
-	// Initialize tag service
-	tagService := services.NewTagService(queries, publisher)
 
 	// Initialize app (need to export fields in main.go App struct)
 	app := &App{

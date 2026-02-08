@@ -2,11 +2,11 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	eventsv1 "github.com/RynoXLI/Wayfile/gen/go/events/v1"
@@ -16,18 +16,45 @@ import (
 	"github.com/RynoXLI/Wayfile/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // DocumentService orchestrates document operations across storage, events, and URL generation
 type DocumentService struct {
-	storage   *storage.Storage
-	publisher events.Publisher
-	signer    *auth.Signer
-	baseURL   string
-	queries   *sqlc.Queries
+	storage    *storage.Storage
+	publisher  events.Publisher
+	signer     *auth.Signer
+	baseURL    string
+	queries    *sqlc.Queries
+	tagService *TagService
+}
+
+// ExtractionMethod represents how a tag or attribute was extracted
+type ExtractionMethod string
+
+const (
+	// ExtractionMethodManual indicates the tag/attribute was manually set by a user
+	ExtractionMethodManual ExtractionMethod = "manual"
+	// ExtractionMethodAutomatic indicates the tag/attribute was automatically extracted
+	ExtractionMethodAutomatic ExtractionMethod = "automatic"
+)
+
+// AttributeExtractionInfo contains extraction info for a single attribute
+type AttributeExtractionInfo struct {
+	Method      ExtractionMethod `json:"extraction_method"`
+	ExtractedBy string           `json:"extracted_by"`
+	ExtractedAt time.Time        `json:"extracted_at"`
+	Source      string           `json:"source"`
+	Confidence  *float64         `json:"confidence,omitempty"`
+}
+
+// DocumentTagMetadata contains comprehensive extraction information
+type DocumentTagMetadata struct {
+	// Tag tracks when/how the tag association was created
+	Tag AttributeExtractionInfo `json:"tag"`
+	// Attributes tracks extraction info for each attribute field
+	Attributes map[string]AttributeExtractionInfo `json:"attributes,omitempty"`
 }
 
 // NewDocumentService creates a new document service with the given dependencies
@@ -37,13 +64,15 @@ func NewDocumentService(
 	signer *auth.Signer,
 	baseURL string,
 	queries *sqlc.Queries,
+	tagService *TagService,
 ) *DocumentService {
 	return &DocumentService{
-		storage:   storage,
-		publisher: publisher,
-		signer:    signer,
-		baseURL:   baseURL,
-		queries:   queries,
+		storage:    storage,
+		publisher:  publisher,
+		signer:     signer,
+		baseURL:    baseURL,
+		queries:    queries,
+		tagService: tagService,
 	}
 }
 
@@ -113,6 +142,8 @@ func (s *DocumentService) AddTagToDocument(
 	documentID string,
 	tagPath string,
 	attributesJSON *string,
+	extractionMethod ExtractionMethod,
+	extractedBy string,
 ) error {
 	// Get namespace ID
 	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
@@ -135,25 +166,180 @@ func (s *DocumentService) AddTagToDocument(
 	// Validate attributes if provided
 	var attributesData []byte
 	if attributesJSON != nil && *attributesJSON != "" {
-		// Get the tag's attribute schema
-		schema, err := s.queries.GetLatestSchemaByTagID(ctx, tag.ID)
-		if err == nil {
-			// Schema exists, validate the attributes
-			if err := s.validateAttributes(*attributesJSON, schema.JsonSchema); err != nil {
-				return status.Errorf(codes.InvalidArgument, "attribute validation failed: %v", err)
-			}
+		// Parse attributes JSON to validate it's proper JSON
+		var attributesMap map[string]interface{}
+		if err := json.Unmarshal([]byte(*attributesJSON), &attributesMap); err != nil {
+			return status.Errorf(codes.InvalidArgument, "invalid attributes JSON: %v", err)
 		}
-		// If no schema exists, we still store the attributes (schema-optional)
+
+		// Validate attributes against tag's schema using TagService
+		if err := s.tagService.ValidateAttributes(ctx, tag.ID, attributesMap); err != nil {
+			return status.Errorf(codes.InvalidArgument, "attribute validation failed: %v", err)
+		}
+
 		attributesData = []byte(*attributesJSON)
 	}
 
 	// Convert document ID to pgtype.UUID
 	docPgUUID := pgtype.UUID{Bytes: docUUID, Valid: true}
 
+	// Create comprehensive extraction metadata
+	now := time.Now()
+	tagInfo := AttributeExtractionInfo{
+		Method:      extractionMethod,
+		ExtractedBy: extractedBy,
+		ExtractedAt: now,
+		Source:      string(extractionMethod),
+	}
+
+	metadata := DocumentTagMetadata{
+		Tag: tagInfo,
+	}
+
+	// If attributes are provided, create extraction info for each attribute field
+	if attributesJSON != nil && *attributesJSON != "" {
+		var attributesMap map[string]interface{}
+		if err := json.Unmarshal([]byte(*attributesJSON), &attributesMap); err != nil {
+			// This should never happen as we validated the JSON above
+			return status.Errorf(codes.Internal, "failed to parse validated JSON: %v", err)
+		}
+
+		metadata.Attributes = make(map[string]AttributeExtractionInfo)
+		for fieldName := range attributesMap {
+			metadata.Attributes[fieldName] = AttributeExtractionInfo{
+				Method:      extractionMethod,
+				ExtractedBy: extractedBy,
+				ExtractedAt: now,
+				Source:      string(extractionMethod),
+			}
+		}
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to marshal metadata: %v", err)
+	}
+
 	// Add the document-tag association
-	err = s.queries.AddDocumentTag(ctx, docPgUUID, tag.ID, attributesData)
+	err = s.queries.AddDocumentTag(ctx, docPgUUID, tag.ID, attributesData, metadataJSON)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to add tag to document: %v", err)
+	}
+
+	// Publish tag extracted event
+	attributesStr := ""
+	if attributesJSON != nil {
+		attributesStr = *attributesJSON
+	}
+
+	// Include extraction method in event metadata
+	eventMetadata := fmt.Sprintf(
+		`{"extraction_method":"%s","extracted_by":"%s"}`,
+		extractionMethod,
+		extractedBy,
+	)
+	event := &eventsv1.TagExtractedEvent{
+		DocumentId: documentID,
+		Namespace:  namespace,
+		TagPath:    tagPath,
+		Metadata:   eventMetadata,
+		Attributes: attributesStr,
+	}
+	if err := s.publisher.TagExtracted(event); err != nil {
+		// Log error but don't fail the operation
+		// The tag association was successful, event publishing is secondary
+		slog.Error(
+			"failed to publish TagExtracted event",
+			"error",
+			err,
+			"document_id",
+			documentID,
+			"tag_path",
+			tagPath,
+		)
+		return nil
+	}
+
+	return nil
+}
+
+// UpdateAttributeExtractionInfo updates extraction info for specific attribute fields
+// This allows tracking when individual attributes are modified by different methods
+func (s *DocumentService) UpdateAttributeExtractionInfo(
+	ctx context.Context,
+	namespace string,
+	documentID string,
+	tagPath string,
+	attributeUpdates map[string]AttributeExtractionInfo,
+) error {
+	// Get namespace ID
+	ns, err := s.queries.GetNamespaceByName(ctx, namespace)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "namespace not found: %v", err)
+	}
+
+	// Get tag by path
+	tag, err := s.queries.GetTagByPath(ctx, ns.ID, tagPath)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "tag not found at path %q: %v", tagPath, err)
+	}
+
+	// Parse document ID
+	docUUID, err := uuid.Parse(documentID)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid document ID: %v", err)
+	}
+
+	docPgUUID := pgtype.UUID{Bytes: docUUID, Valid: true}
+
+	// Get current metadata
+	currentData, err := s.queries.GetDocumentTagAttributes(ctx, docPgUUID, tag.ID)
+	if err != nil {
+		return status.Errorf(codes.NotFound, "document-tag association not found: %v", err)
+	}
+
+	// Parse existing metadata
+	var metadata DocumentTagMetadata
+	if len(currentData.AttributesMetadata) > 0 {
+		if err := json.Unmarshal(currentData.AttributesMetadata, &metadata); err != nil {
+			// If we can't parse existing metadata, create new structure
+			metadata = DocumentTagMetadata{
+				Tag: AttributeExtractionInfo{
+					Method:      ExtractionMethodManual,
+					ExtractedBy: "unknown",
+					ExtractedAt: time.Now(),
+					Source:      "manual",
+				},
+			}
+		}
+	}
+
+	// Initialize attributes map if needed
+	if metadata.Attributes == nil {
+		metadata.Attributes = make(map[string]AttributeExtractionInfo)
+	}
+
+	// Update specific attribute extraction info
+	for fieldName, extractionInfo := range attributeUpdates {
+		metadata.Attributes[fieldName] = extractionInfo
+	}
+
+	// Marshal updated metadata
+	updatedMetadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to marshal updated metadata: %v", err)
+	}
+
+	// Update the metadata in the database (keeping existing attributes)
+	err = s.queries.UpdateDocumentTagAttributes(
+		ctx,
+		docPgUUID,
+		tag.ID,
+		currentData.Attributes,
+		updatedMetadataJSON,
+	)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to update attribute metadata: %v", err)
 	}
 
 	return nil
@@ -191,35 +377,6 @@ func (s *DocumentService) RemoveTagFromDocument(
 	err = s.queries.RemoveDocumentTag(ctx, docPgUUID, tag.ID)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to remove tag from document: %v", err)
-	}
-
-	return nil
-}
-
-// validateAttributes validates attributes JSON against a JSON schema
-func (s *DocumentService) validateAttributes(attributesJSON string, schemaJSON []byte) error {
-	// Parse the schema
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-
-	if err := compiler.AddResource("schema.json", bytes.NewReader(schemaJSON)); err != nil {
-		return fmt.Errorf("failed to add schema resource: %w", err)
-	}
-
-	schema, err := compiler.Compile("schema.json")
-	if err != nil {
-		return fmt.Errorf("failed to compile schema: %w", err)
-	}
-
-	// Parse the attributes JSON
-	var attributes interface{}
-	if err := json.Unmarshal([]byte(attributesJSON), &attributes); err != nil {
-		return fmt.Errorf("invalid JSON: %w", err)
-	}
-
-	// Validate
-	if err := schema.Validate(attributes); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	return nil

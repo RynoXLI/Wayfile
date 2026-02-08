@@ -25,3 +25,17 @@ message TagSchemaChangedEvent {
   // new_json_schema is the new JSON Schema definition.
   string new_json_schema = 4;
 }
+
+// TagExtractedEvent is published when a tag is successfully extracted/added to a document.
+message TagExtractedEvent {
+  // document_id is the unique identifier of the document.
+  string document_id = 1;
+  // namespace is the name of the namespace containing the document.
+  string namespace = 2;
+  // tag_path is the hierarchical path of the tag.
+  string tag_path = 3;
+  // metadata contains additional information about the extraction context.
+  string metadata = 4;
+  // attributes is the JSON representation of tag attributes (may be empty).
+  string attributes = 5;
+}

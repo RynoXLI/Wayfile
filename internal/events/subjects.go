@@ -4,4 +4,5 @@ package events
 const (
 	DocumentUploaded = "documents.uploaded"
 	TagSchemaChanged = "tags.schema.changed"
+	TagExtracted     = "tags.extracted"
 )

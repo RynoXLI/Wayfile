@@ -170,10 +170,38 @@ func TestValidateTagInput(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:       "valid JSON schema",
-			tagName:    "test",
-			jsonSchema: stringPtr(`{"type": "object", "properties": {"name": {"type": "string"}}}`),
-			wantErr:    false,
+			name:    "valid JSON schema with primitives only",
+			tagName: "test",
+			jsonSchema: stringPtr(
+				`{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}, "active": {"type": "boolean"}}}`,
+			),
+			wantErr: false,
+		},
+		{
+			name:    "invalid JSON schema - contains object type",
+			tagName: "test",
+			jsonSchema: stringPtr(
+				`{"type": "object", "properties": {"address": {"type": "object", "properties": {"street": {"type": "string"}}}}}`,
+			),
+			wantErr:   true,
+			errString: "nested types not allowed",
+		},
+		{
+			name:    "invalid JSON schema - contains array type",
+			tagName: "test",
+			jsonSchema: stringPtr(
+				`{"type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}}}}`,
+			),
+			wantErr:   true,
+			errString: "nested types not allowed",
+		},
+		{
+			name:    "valid JSON schema with all primitive types",
+			tagName: "test",
+			jsonSchema: stringPtr(
+				`{"type": "object", "properties": {"str": {"type": "string"}, "num": {"type": "number"}, "int": {"type": "integer"}, "bool": {"type": "boolean"}}}`,
+			),
+			wantErr: false,
 		},
 		{
 			name:       "invalid JSON schema - malformed JSON",
@@ -291,4 +319,110 @@ func TestEnsureColor(t *testing.T) {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func TestValidateSchemaPrimitivesOnly(t *testing.T) {
+	tests := []struct {
+		name      string
+		schema    string
+		wantErr   bool
+		errString string
+	}{
+		{
+			name:    "valid schema with primitive types",
+			schema:  `{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}, "active": {"type": "boolean"}}}`,
+			wantErr: false,
+		},
+		{
+			name:      "invalid schema with object type",
+			schema:    `{"type": "object", "properties": {"address": {"type": "object"}}}`,
+			wantErr:   true,
+			errString: "nested types not allowed",
+		},
+		{
+			name:      "invalid schema with array type",
+			schema:    `{"type": "object", "properties": {"tags": {"type": "array"}}}`,
+			wantErr:   true,
+			errString: "nested types not allowed",
+		},
+		{
+			name:    "valid schema with all primitives",
+			schema:  `{"type": "object", "properties": {"str": {"type": "string"}, "num": {"type": "number"}, "int": {"type": "integer"}, "bool": {"type": "boolean"}}}`,
+			wantErr: false,
+		},
+		{
+			name:      "invalid schema with nested object",
+			schema:    `{"type": "object", "properties": {"user": {"type": "object", "properties": {"name": {"type": "string"}}}}}`,
+			wantErr:   true,
+			errString: "nested types not allowed",
+		},
+		{
+			name:    "valid schema with string validation rules",
+			schema:  `{"type": "object", "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 100}, "email": {"type": "string", "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"}}}`,
+			wantErr: false,
+		},
+		{
+			name:    "valid schema with number validation rules",
+			schema:  `{"type": "object", "properties": {"price": {"type": "number", "minimum": 0, "maximum": 1000}, "rating": {"type": "integer", "minimum": 1, "maximum": 5}}}`,
+			wantErr: false,
+		},
+		{
+			name:    "valid schema with enum validation",
+			schema:  `{"type": "object", "properties": {"status": {"type": "string", "enum": ["active", "inactive"]}, "priority": {"type": "integer", "enum": [1, 2, 3]}}}`,
+			wantErr: false,
+		},
+		{
+			name:    "valid schema with required fields",
+			schema:  `{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}, "required": ["name"]}`,
+			wantErr: false,
+		},
+		{
+			name:    "valid schema with format validation",
+			schema:  `{"type": "object", "properties": {"email": {"type": "string", "format": "email"}, "created_date": {"type": "string", "format": "date"}, "doc_id": {"type": "string", "format": "uuid"}}}`,
+			wantErr: false,
+		},
+		{
+			name:      "invalid JSON",
+			schema:    `{"invalid": json}`,
+			wantErr:   true,
+			errString: "failed to parse schema JSON",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSchemaPrimitivesOnly(tt.schema)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errString != "" {
+					assert.Contains(t, err.Error(), tt.errString)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestIsPrimitiveType(t *testing.T) {
+	tests := []struct {
+		schemaType string
+		expected   bool
+	}{
+		{"string", true},
+		{"number", true},
+		{"integer", true},
+		{"boolean", true},
+		{"null", false},
+		{"object", false},
+		{"array", false},
+		{"unknown", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.schemaType, func(t *testing.T) {
+			result := isPrimitiveType(tt.schemaType)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

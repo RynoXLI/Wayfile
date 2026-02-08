@@ -863,7 +863,7 @@ func TestTagSchemaCreation(t *testing.T) {
 		"properties": {
 			"priority": {"type": "string", "enum": ["urgent", "normal", "low"]},
 			"created_at": {"type": "string", "format": "date-time"},
-			"tags": {"type": "array", "items": {"type": "string"}}
+			"tag_count": {"type": "integer", "minimum": 0}
 		},
 		"required": ["priority"]
 	}`
